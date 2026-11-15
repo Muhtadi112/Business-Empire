@@ -105,6 +105,17 @@ jobs:
           ./Godot_v4.4.1-stable_linux.x86_64 --headless --verbose --path godot --export-debug "Android" ../build/Business-Empire-By-Adi.apk
           test -s build/Business-Empire-By-Adi.apk
 
+      - name: Validate exported APK integrity
+        run: |
+          set -euo pipefail
+          APK="build/Business-Empire-By-Adi.apk"
+          test -s "$APK"
+          echo "APK size: $(stat -c%s "$APK") bytes"
+          file "$APK"
+          unzip -tq "$APK"
+          apksigner verify --verbose "$APK"
+          sha256sum "$APK"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
