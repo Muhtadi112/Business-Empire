@@ -164,18 +164,22 @@ func _build_world() -> void:
 		for side in [-1, 1]:
 			var x := float(side) * (22.0 + float(i % 2) * 5.0)
 			_add_building(Vector3(x, 0.0, zc), Vector3(11, 9, 10), Color(0.68, 0.67, 0.59))
+	# Detail fasad pusat komersial dari kit Kenney.
+	for i in range(4):
+		_add_kenney_model("commercial", "detail-awning-wide" if i % 2 == 0 else "detail-awning", Vector3(-25.0 + float(i) * 12.0, 0.0, -5.0 - float(i % 2) * 12.0), Vector3(0.8, 0.8, 0.8))
 	# Area parkir dan marka depan pertokoan.
 	_add_box(self, Vector3(25, 0.025, -23), Vector3(30, 0.12, 18), Color(0.19, 0.20, 0.20))
 	for i in range(7):
 		_add_box(self, Vector3(12.5 + float(i) * 4.1, 0.10, -23), Vector3(0.12, 0.025, 12), Color(0.88, 0.88, 0.82))
 
-	# Permukiman: rumah lebih renggang, pepohonan dan halaman.
+	# Permukiman: rumah lebih renggang, pepohonan, pagar dan halaman.
 	for i in range(6):
 		var zs := -55.0 - float(i) * 12.0
 		for side in [-1, 1]:
 			var x := float(side) * (25.0 + float(i % 2) * 10.0)
 			_add_building(Vector3(x, 0.0, zs), Vector3(10, 6, 9), Color(0.72, 0.64, 0.51))
 			_add_tree(Vector3(x + float(side) * 8.0, 0.0, zs - 3.0), 0.9)
+			_add_kenney_model("suburban", "fence-low", Vector3(x + float(side) * 5.5, 0.0, zs + 5.0), Vector3(0.65, 0.65, 0.65))
 
 	# Zona industri: gudang, workshop dan halaman truk.
 	for i in range(5):
@@ -209,22 +213,12 @@ func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> Mesh
 	return mesh_instance
 
 func _add_building(pos: Vector3, size: Vector3, color: Color) -> void:
-	# Pakai model Kenney sesuai zona; geometri prosedural hanya fallback.
+	# Semua varian di bawah sudah diverifikasi dari inventaris ZIP Kenney.
 	var pack := "commercial" if pos.z > -15.0 else ("suburban" if pos.z > -75.0 else "industrial")
 	var prefix := "building-type-" if pack == "suburban" else "building-"
 	var variant := String.chr(97 + int(abs(pos.x * 2.0 + pos.z)) % 6)
-	if _add_kenney_model(pack, prefix + variant, Vector3(pos.x, 0.0, pos.z), Vector3(0.82, 0.82, 0.82)):
-		return
-	_add_box(self, pos, size, color)
-	_add_box(self, Vector3(pos.x, pos.y + size.y * 0.5 + 0.12, pos.z), Vector3(size.x + 0.45, 0.24, size.z + 0.45), Color(0.24, 0.28, 0.3))
-	var floors := maxi(1, int(size.y / 2.5))
-	for floor_index in range(floors):
-		for window_index in range(3):
-			var wz := pos.z - size.z * 0.34 + window_index * size.z * 0.32
-			_add_box(self, Vector3(pos.x + size.x * 0.501, 1.15 + floor_index * 2.35, wz), Vector3(0.07, 0.92, 1.15), Color(0.12, 0.28, 0.36))
-			_add_box(self, Vector3(pos.x + size.x * 0.53, 1.15 + floor_index * 2.35, wz), Vector3(0.035, 0.08, 1.22), Color(0.72, 0.76, 0.72))
-	_add_box(self, Vector3(pos.x + size.x * 0.505, 0.95, pos.z), Vector3(0.08, 1.8, 1.25), Color(0.22, 0.17, 0.12))
-	_add_box(self, Vector3(pos.x + size.x * 0.54, 2.15, pos.z), Vector3(0.18, 0.18, size.z * 0.9), Color(0.85, 0.68, 0.28))
+	if not _add_kenney_model(pack, prefix + variant, Vector3(pos.x, 0.0, pos.z), Vector3(0.82, 0.82, 0.82)):
+		push_warning("Bangunan Kenney tidak ditemukan: " + pack + "/" + prefix + variant)
 
 func _add_kenney_model(pack: String, model_name: String, pos: Vector3, model_scale: Vector3, yaw: float = 0.0) -> bool:
 	var path := "res://assets/kenney_runtime/%s/%s.glb" % [pack, model_name]
@@ -298,14 +292,15 @@ func _add_streetlight(pos: Vector3) -> void:
 	_add_box(self, pos + Vector3(1.15, 5.72, 0), Vector3(0.42, 0.08, 0.3), Color(0.95, 0.88, 0.62))
 
 func _add_warehouse() -> void:
-	# Terminal distribusi utama di ujung rute.
+	# Terminal distribusi: model industri Kenney, kontainer, tangki dan area parkir.
 	_add_box(self, Vector3(0, 0.10, -185), Vector3(76, 0.2, 42), Color(0.24, 0.25, 0.24))
-	_add_box(self, Vector3(0, 4.2, -205), Vector3(30, 8.4, 22), Color(0.52, 0.58, 0.6))
-	_add_box(self, Vector3(0, 8.45, -205), Vector3(30.8, 0.35, 22.8), Color(0.22, 0.27, 0.29))
-	# Pintu loading dock.
-	for x in [-10.0, -3.5, 3.5, 10.0]:
-		_add_box(self, Vector3(x, 2.2, -193.85), Vector3(4.8, 4.4, 0.22), Color(0.17, 0.25, 0.29))
-		_add_box(self, Vector3(x, 0.25, -192.9), Vector3(5.2, 0.35, 1.8), Color(0.63, 0.65, 0.63))
+	_add_kenney_model("industrial", "building-t", Vector3(0, 0, -205), Vector3(1.35, 1.35, 1.35))
+	_add_kenney_model("industrial", "detail-tank-large", Vector3(-22, 0, -207), Vector3(1.2, 1.2, 1.2))
+	_add_kenney_model("industrial", "detail-tank", Vector3(22, 0, -207), Vector3(1.4, 1.4, 1.4))
+	_add_kenney_model("industrial", "chimney-large", Vector3(-16, 0, -222), Vector3(1.1, 1.1, 1.1))
+	for i in range(3):
+		var container_name := ["shipping-container-a", "shipping-container-b", "shipping-container-c"][i]
+		_add_kenney_model("industrial", container_name, Vector3(-25.0 + float(i) * 12.0, 0.0, -177.0), Vector3(1.2, 1.2, 1.2))
 	# Pagar perimeter terminal.
 	for x in range(-38, 39, 4):
 		for z in [-225, -165]:
