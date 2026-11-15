@@ -138,8 +138,11 @@ func _build_world() -> void:
 			var x := float(side) * (19.0 + float(i % 3) * 7.0)
 			var size := Vector3(12.0 + float(i % 2) * 4.0, 7.0 + float(i % 3) * 2.0, 12.0)
 			_add_building(Vector3(x, size.y / 2.0 - 0.1, zpos), size, [Color(0.72,0.68,0.57), Color(0.57,0.68,0.72), Color(0.69,0.61,0.52)][i % 3])
+	_add_roadside_details()
 	_add_warehouse()
 	_add_box(self, Vector3(0, 0.15, -35), Vector3(0.5, 0.25, 250), Color(0.94, 0.76, 0.2))
+	_add_box(self, Vector3(-5.85, 0.08, -35), Vector3(0.12, 0.08, 250), Color(0.95, 0.95, 0.86))
+	_add_box(self, Vector3(5.85, 0.08, -35), Vector3(0.12, 0.08, 250), Color(0.95, 0.95, 0.86))
 
 func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
@@ -155,10 +158,70 @@ func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> Mesh
 	return mesh_instance
 
 func _add_building(pos: Vector3, size: Vector3, color: Color) -> void:
+	# Massa bangunan dengan detail fasad, lis, pintu dan jendela.
 	_add_box(self, pos, size, color)
-	for floor_index in range(maxi(1, int(size.y / 2.5))):
-		for window_index in range(2):
-			_add_box(self, Vector3(pos.x, 1.2 + floor_index * 2.5, pos.z + (window_index - 0.5) * 3.2 - size.z * 0.28), Vector3(0.08, 0.85, 1.4), Color(0.19, 0.35, 0.43))
+	_add_box(self, Vector3(pos.x, pos.y + size.y * 0.5 + 0.12, pos.z), Vector3(size.x + 0.45, 0.24, size.z + 0.45), Color(0.24, 0.28, 0.3))
+	var floors := maxi(1, int(size.y / 2.5))
+	for floor_index in range(floors):
+		for window_index in range(3):
+			var wz := pos.z - size.z * 0.34 + window_index * size.z * 0.32
+			_add_box(self, Vector3(pos.x + size.x * 0.501, 1.15 + floor_index * 2.35, wz), Vector3(0.07, 0.92, 1.15), Color(0.12, 0.28, 0.36))
+			_add_box(self, Vector3(pos.x + size.x * 0.53, 1.15 + floor_index * 2.35, wz), Vector3(0.035, 0.08, 1.22), Color(0.72, 0.76, 0.72))
+	_add_box(self, Vector3(pos.x + size.x * 0.505, 0.95, pos.z), Vector3(0.08, 1.8, 1.25), Color(0.22, 0.17, 0.12))
+	_add_box(self, Vector3(pos.x + size.x * 0.54, 2.15, pos.z), Vector3(0.18, 0.18, size.z * 0.9), Color(0.85, 0.68, 0.28))
+
+func _add_roadside_details() -> void:
+	for side in [-1, 1]:
+		_add_box(self, Vector3(side * 8.8, 0.12, -35), Vector3(2.2, 0.22, 250), Color(0.58, 0.57, 0.51))
+		for i in range(8):
+			var z := 8.0 - float(i) * 24.0
+			var x := float(side) * (13.5 + float(i % 2) * 2.0)
+			_add_tree(Vector3(x, 0.0, z), 1.0 + float(i % 3) * 0.15)
+			if i % 2 == 0:
+				_add_streetlight(Vector3(float(side) * 7.8, 0.0, z - 7.0))
+	_add_box(self, Vector3(0, 0.08, -14), Vector3(11.8, 0.12, 0.5), Color(0.92, 0.88, 0.72))
+	_add_box(self, Vector3(0, 0.08, -56), Vector3(11.8, 0.12, 0.5), Color(0.92, 0.88, 0.72))
+	_add_box(self, Vector3(-14.0, 2.5, -43), Vector3(0.25, 5.0, 0.25), Color(0.25, 0.27, 0.28))
+	_add_box(self, Vector3(-14.0, 4.9, -43), Vector3(7.0, 1.5, 0.25), Color(0.78, 0.16, 0.12))
+	_add_box(self, Vector3(-14.0, 4.9, -42.82), Vector3(5.8, 0.85, 0.04), Color(0.95, 0.88, 0.7))
+
+func _add_tree(pos: Vector3, scale_value: float) -> void:
+	var trunk := MeshInstance3D.new()
+	var trunk_mesh := CylinderMesh.new()
+	trunk_mesh.top_radius = 0.18 * scale_value
+	trunk_mesh.bottom_radius = 0.28 * scale_value
+	trunk_mesh.height = 2.4 * scale_value
+	trunk.mesh = trunk_mesh
+	trunk.position = pos + Vector3(0, 1.2 * scale_value, 0)
+	var bark := StandardMaterial3D.new()
+	bark.albedo_color = Color(0.34, 0.22, 0.13)
+	trunk.material_override = bark
+	add_child(trunk)
+	var crown := MeshInstance3D.new()
+	var crown_mesh := SphereMesh.new()
+	crown_mesh.radius = 1.35 * scale_value
+	crown_mesh.height = 2.5 * scale_value
+	crown.mesh = crown_mesh
+	crown.position = pos + Vector3(0, 3.0 * scale_value, 0)
+	var leaves := StandardMaterial3D.new()
+	leaves.albedo_color = Color(0.16, 0.38, 0.2)
+	crown.material_override = leaves
+	add_child(crown)
+
+func _add_streetlight(pos: Vector3) -> void:
+	var pole := MeshInstance3D.new()
+	var pole_mesh := CylinderMesh.new()
+	pole_mesh.top_radius = 0.055
+	pole_mesh.bottom_radius = 0.09
+	pole_mesh.height = 6.0
+	pole.mesh = pole_mesh
+	pole.position = pos + Vector3(0, 3.0, 0)
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.22, 0.25, 0.27)
+	pole.material_override = metal
+	add_child(pole)
+	_add_box(self, pos + Vector3(0.65, 5.85, 0), Vector3(1.35, 0.12, 0.22), Color(0.25, 0.28, 0.3))
+	_add_box(self, pos + Vector3(1.15, 5.72, 0), Vector3(0.42, 0.08, 0.3), Color(0.95, 0.88, 0.62))
 
 func _add_warehouse() -> void:
 	_add_box(self, Vector3(0, 3.0, -103), Vector3(24, 6, 20), Color(0.55, 0.59, 0.62))
@@ -175,52 +238,85 @@ func _build_truck() -> void:
 	truck = CharacterBody3D.new()
 	truck.position = Vector3(0, 0.8, 12)
 	add_child(truck)
-	var body_material := StandardMaterial3D.new()
-	body_material.albedo_color = Color(0.78, 0.16, 0.12)
-	var body := MeshInstance3D.new()
-	var body_mesh := BoxMesh.new()
-	body_mesh.size = Vector3(2.5, 1.2, 4.8)
-	body.mesh = body_mesh
-	body.position = Vector3(0, 0.45, 0)
-	body.material_override = body_material
-	truck.add_child(body)
-	var cabin := MeshInstance3D.new()
-	var cabin_mesh := BoxMesh.new()
-	cabin_mesh.size = Vector3(2.25, 1.45, 1.7)
-	cabin.mesh = cabin_mesh
-	cabin.position = Vector3(0, 1.65, -1.25)
-	cabin.material_override = body_material
-	truck.add_child(cabin)
-	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.18, 0.34, 0.42)
-	glass.metallic = 0.2
-	var windshield := MeshInstance3D.new()
-	var glass_mesh := BoxMesh.new()
-	glass_mesh.size = Vector3(2.0, 0.85, 0.06)
-	windshield.mesh = glass_mesh
-	windshield.position = Vector3(0, 1.75, -2.12)
-	windshield.material_override = glass
-	truck.add_child(windshield)
+	var red := _make_material(Color(0.72, 0.12, 0.09), 0.32, 0.05)
+	var dark_red := _make_material(Color(0.34, 0.055, 0.045), 0.48)
+	var glass := _make_material(Color(0.09, 0.24, 0.31), 0.18, 0.35)
+	var rubber := _make_material(Color(0.045, 0.05, 0.055), 0.92)
+	var metal := _make_material(Color(0.48, 0.52, 0.54), 0.35, 0.55)
+	var white := _make_material(Color(0.88, 0.87, 0.79), 0.55)
+	# Chassis and cargo box: longer rigid truck silhouette.
+	_add_truck_box(Vector3(0, 0.55, 0.85), Vector3(2.35, 0.45, 7.4), dark_red)
+	_add_truck_box(Vector3(0, 1.85, 1.65), Vector3(2.45, 2.45, 5.15), white)
+	_add_truck_box(Vector3(0, 3.12, 1.65), Vector3(2.5, 0.12, 5.22), metal)
+	for side in [-1, 1]:
+		_add_truck_box(Vector3(side * 1.24, 1.85, 1.65), Vector3(0.06, 2.45, 5.15), red)
+		for z in [-0.65, 0.75, 2.15, 3.55]:
+			_add_truck_box(Vector3(side * 1.28, 1.85, z), Vector3(0.04, 0.07, 0.07), metal)
+	# Driver cabin, sloped-looking windscreen, bumper and grille.
+	_add_truck_box(Vector3(0, 1.25, -2.35), Vector3(2.35, 1.25, 2.35), red)
+	_add_truck_box(Vector3(0, 2.15, -2.28), Vector3(2.2, 0.8, 1.72), red)
+	_add_truck_box(Vector3(0, 2.13, -3.16), Vector3(1.92, 0.68, 0.055), glass)
+	_add_truck_box(Vector3(0, 1.52, -3.57), Vector3(1.65, 0.22, 0.12), dark_red)
+	_add_truck_box(Vector3(0, 0.76, -3.58), Vector3(2.42, 0.32, 0.22), metal)
+	_add_truck_box(Vector3(0, 1.08, -3.51), Vector3(0.95, 0.28, 0.08), dark_red)
+	for side in [-1, 1]:
+		_add_truck_box(Vector3(side * 0.88, 1.28, -3.55), Vector3(0.42, 0.28, 0.08), white)
+		_add_truck_box(Vector3(side * 1.28, 2.05, -2.18), Vector3(0.48, 0.12, 0.12), dark_red)
+		_add_truck_box(Vector3(side * 1.48, 2.05, -2.15), Vector3(0.08, 0.62, 0.08), metal)
+		_add_truck_box(Vector3(side * 1.48, 2.36, -2.15), Vector3(0.3, 0.22, 0.12), glass)
+		_add_truck_box(Vector3(side * 1.22, 1.1, 3.2), Vector3(0.08, 0.3, 4.7), Color(0.9,0.2,0.12))
+	# Wheels with visible hubs on both axles.
 	for x in [-1.25, 1.25]:
-		for z in [-1.5, 1.5]:
+		for z in [-2.35, 2.0, 3.15]:
 			var wheel := MeshInstance3D.new()
 			var wheel_mesh := CylinderMesh.new()
-			wheel_mesh.top_radius = 0.48
-			wheel_mesh.bottom_radius = 0.48
-			wheel_mesh.height = 0.32
+			wheel_mesh.top_radius = 0.52
+			wheel_mesh.bottom_radius = 0.52
+			wheel_mesh.height = 0.34
 			wheel.mesh = wheel_mesh
 			wheel.rotation.z = PI / 2.0
-			wheel.position = Vector3(x, 0.1, z)
-			var rubber := StandardMaterial3D.new()
-			rubber.albedo_color = Color(0.07, 0.07, 0.075)
+			wheel.position = Vector3(x, 0.12, z)
 			wheel.material_override = rubber
 			truck.add_child(wheel)
+			var hub := MeshInstance3D.new()
+			var hub_mesh := CylinderMesh.new()
+			hub_mesh.top_radius = 0.23
+			hub_mesh.bottom_radius = 0.23
+			hub_mesh.height = 0.36
+			hub.mesh = hub_mesh
+			hub.rotation.z = PI / 2.0
+			hub.position = Vector3(x * 1.01, 0.12, z)
+			hub.material_override = metal
+			truck.add_child(hub)
+	# Rear lamps and reflective strips.
+	for side in [-1, 1]:
+		_add_truck_box(Vector3(side * 0.92, 1.0, 4.27), Vector3(0.24, 0.48, 0.08), Color(0.8,0.06,0.04))
+		_add_truck_box(Vector3(side * 0.92, 1.0, 4.32), Vector3(0.12, 0.2, 0.04), Color(1.0,0.72,0.12))
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(2.5, 2.4, 4.8)
+	shape.size = Vector3(2.7, 2.5, 8.0)
 	collision.shape = shape
-	collision.position.y = 0.8
+	collision.position = Vector3(0, 0.85, 0.45)
 	truck.add_child(collision)
+
+func _make_material(color: Color, roughness_value: float = 0.7, metallic_value: float = 0.0) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = roughness_value
+	material.metallic = metallic_value
+	return material
+
+func _add_truck_box(pos: Vector3, size: Vector3, material_or_color) -> void:
+	var part := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	part.mesh = mesh
+	part.position = pos
+	if material_or_color is Material:
+		part.material_override = material_or_color
+	else:
+		part.material_override = _make_material(material_or_color)
+	truck.add_child(part)
 
 func _build_camera() -> void:
 	camera = Camera3D.new()
