@@ -13,6 +13,7 @@ var completed_deliveries := 0
 var fuel := 100.0
 var truck_condition := 100.0
 var impact_cooldown := 0.0
+var autosave_timer := 0.0
 var speed := 0.0
 var throttle := 0.0
 var steering := 0.0
@@ -48,8 +49,8 @@ func _physics_process(delta: float) -> void:
 		throttle = -joystick_vector.y
 		steer_input = joystick_vector.x
 	impact_cooldown = maxf(0.0, impact_cooldown - delta)
-	if fuel <= 0.0:
-		throttle = minf(throttle, 0.0)
+	if fuel <= 0.0 or truck_condition <= 0.0:
+		throttle = 0.0
 	var desired_accel := throttle * TRUCK_ACCELERATION
 	speed = move_toward(speed, desired_accel * MAX_SPEED / TRUCK_ACCELERATION, TRUCK_ACCELERATION * delta)
 	if abs(throttle) < 0.05:
@@ -60,10 +61,14 @@ func _physics_process(delta: float) -> void:
 	truck.velocity.y = -9.8
 	truck.move_and_slide()
 	fuel = maxf(0.0, fuel - abs(speed) * delta * 0.004)
-	if truck.get_slide_collision_count() > 0 and abs(speed) > 12.0 and impact_cooldown <= 0.0:
-		truck_condition = maxf(0.0, truck_condition - minf(12.0, abs(speed) * 0.35))
-		impact_cooldown = 1.2
-		status_label.text = "BENTURAN! KONDISI TRUK " + str(roundi(truck_condition)) + "%"
+	if abs(speed) > 12.0 and impact_cooldown <= 0.0:
+		for collision_index in range(truck.get_slide_collision_count()):
+			var impact := truck.get_slide_collision(collision_index)
+			if abs(impact.get_normal().y) < 0.6:
+				truck_condition = maxf(0.0, truck_condition - minf(12.0, abs(speed) * 0.35))
+				impact_cooldown = 1.2
+				status_label.text = "BENTURAN! KONDISI TRUK " + str(roundi(truck_condition)) + "%"
+				break
 	if truck_condition <= 0.0:
 		speed = move_toward(speed, 0.0, 12.0 * delta)
 	if vehicle_label:
@@ -80,6 +85,14 @@ func _physics_process(delta: float) -> void:
 	if contract_active and truck.global_position.distance_to(target_position) < 13.0:
 		_complete_contract()
 	_update_speed_label()
+	autosave_timer += delta
+	if autosave_timer >= 10.0:
+		_save_game()
+		autosave_timer = 0.0
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
+		_save_game()
 
 func _build_world() -> void:
 	var world_env := WorldEnvironment.new()
