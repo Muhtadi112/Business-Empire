@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,13 +37,35 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun BusinessEmpireApp() {
-    var cash by remember { mutableLongStateOf(250_000_000L) }
-    var trucks by remember { mutableIntStateOf(2) }
-    var deliveries by remember { mutableIntStateOf(0) }
-    var day by remember { mutableIntStateOf(1) }
-    var speed by remember { mutableIntStateOf(1) }
-    var paused by remember { mutableStateOf(false) }
-    var log by remember { mutableStateOf(listOf("Perusahaan didirikan. Selamat datang, CEO!")) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("business_empire_save", android.content.Context.MODE_PRIVATE) }
+    var cash by remember { mutableLongStateOf(prefs.getLong("cash", 250_000_000L)) }
+    var trucks by remember { mutableIntStateOf(prefs.getInt("trucks", 2)) }
+    var deliveries by remember { mutableIntStateOf(prefs.getInt("deliveries", 0)) }
+    var day by remember { mutableIntStateOf(prefs.getInt("day", 1)) }
+    var speed by remember { mutableIntStateOf(prefs.getInt("speed", 1)) }
+    var paused by remember { mutableStateOf(prefs.getBoolean("paused", false)) }
+    var log by remember {
+        mutableStateOf(
+            prefs.getString("log", null)
+                ?.split("\\n")
+                ?.filter { it.isNotBlank() }
+                ?: listOf("Perusahaan didirikan. Selamat datang, CEO!")
+        )
+    }
+
+    // Simpan otomatis setiap data permainan berubah.
+    LaunchedEffect(cash, trucks, deliveries, day, speed, paused, log) {
+        prefs.edit()
+            .putLong("cash", cash)
+            .putInt("trucks", trucks)
+            .putInt("deliveries", deliveries)
+            .putInt("day", day)
+            .putInt("speed", speed)
+            .putBoolean("paused", paused)
+            .putString("log", log.take(30).joinToString("\\n"))
+            .apply()
+    }
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
 
     MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Navy, surface = Panel, onSurface = Color.White)) {
