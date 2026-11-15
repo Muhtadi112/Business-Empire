@@ -84,7 +84,7 @@ jobs:
         run: |
           cp "$HOME/.android/debug.keystore" "$RUNNER_TEMP/debug.keystore"
           mkdir -p build
-          ./Godot_v4.4.1-stable_linux.x86_64 --headless --verbose --path godot --export-debug "Android" build/Business-Empire-By-Adi.apk
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --verbose --path godot --export-debug "Android" ../build/Business-Empire-By-Adi.apk
           test -s build/Business-Empire-By-Adi.apk
 
       - name: Upload APK artifact
