@@ -159,6 +159,7 @@ func _add_warehouse() -> void:
 	marker_material.albedo_color = Color(0.1, 0.9, 0.4, 0.35)
 	marker_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	warehouse_marker.material_override = marker_material
+	warehouse_marker.visible = false
 
 func _build_truck() -> void:
 	truck = CharacterBody3D.new()
