@@ -60,7 +60,8 @@ func _physics_process(delta: float) -> void:
 	impact_cooldown = maxf(0.0, impact_cooldown - delta)
 	if fuel <= 0.0 or truck_condition <= 0.0:
 		throttle = 0.0
-	var desired_accel := throttle * TRUCK_ACCELERATION
+	var load_factor := 1.0 - (cargo_weight / 8.0) * 0.28 if cargo_loaded else 1.0
+	var desired_accel := throttle * TRUCK_ACCELERATION * load_factor
 	speed = move_toward(speed, desired_accel * MAX_SPEED / TRUCK_ACCELERATION, TRUCK_ACCELERATION * delta)
 	if abs(throttle) < 0.05:
 		speed = move_toward(speed, 0.0, 2.8 * delta)
@@ -242,9 +243,18 @@ func _build_hud() -> void:
 	top_panel.size = Vector2(430, 88)
 	root.add_child(top_panel)
 	cash_label = _make_label("KAS PERUSAHAAN", Vector2(36, 24), 18, Color(0.35, 0.95, 0.68), root)
-	status_label = _make_label("TRUK SIAP • PILIH MUATAN DAN AMBIL KONTRAK", Vector2(36, 58), 14, Color.WHITE, root)\n\tcargo_label = _make_label("MUATAN: PAKET ELEKTRONIK • 2 TON", Vector2(36, 108), 14, Color(0.95, 0.82, 0.4), root)
+	status_label = _make_label("TRUK SIAP • PILIH MUATAN DAN AMBIL KONTRAK", Vector2(36, 58), 14, Color.WHITE, root)
+	cargo_label = _make_label("MUATAN: PAKET ELEKTRONIK • 2 TON", Vector2(36, 108), 14, Color(0.95, 0.82, 0.4), root)
 	vehicle_label = _make_label("BBM 100%   •   KONDISI 100%", Vector2(36, 88), 14, Color.WHITE, root)
 	speed_label = _make_label("0 KM/J", Vector2(1090, 30), 24, Color.WHITE, root)
+
+	cargo_button = Button.new()
+	cargo_button.text = "GANTI JENIS MUATAN"
+	cargo_button.position = Vector2(18, 230)
+	cargo_button.size = Vector2(260, 48)
+	cargo_button.add_theme_font_size_override("font_size", 15)
+	cargo_button.pressed.connect(_on_cargo_pressed)
+	root.add_child(cargo_button)
 
 	contract_button = Button.new()
 	contract_button.text = "AMBIL KONTRAK • Rp12,5 JT"
@@ -302,6 +312,18 @@ func _toggle_camera() -> void:
 	if status_label:
 		status_label.text = "KAMERA KABIN • PANDANGAN PENGEMUDI" if camera_first_person else "KAMERA EKSTERNAL • ORANG KETIGA"
 
+func _on_cargo_pressed() -> void:
+	if contract_active:
+		status_label.text = "MUATAN SEDANG DIKIRIM • SELESAIKAN KONTRAK DULU"
+		return
+	cargo_index = (cargo_index + 1) % CARGO_NAMES.size()
+	cargo_weight = CARGO_WEIGHTS[cargo_index]
+	cargo_reward = CARGO_REWARDS[cargo_index]
+	cargo_label.text = "MUATAN: " + CARGO_NAMES[cargo_index] + " • " + str(int(cargo_weight)) + " TON"
+	contract_button.text = "AMBIL KONTRAK • Rp" + _format_money(cargo_reward + completed_deliveries * 1500000)
+	status_label.text = "MUATAN DIPILIH • " + CARGO_NAMES[cargo_index]
+	_save_game()
+
 func _on_contract_pressed() -> void:
 	if truck_condition <= 0.0:
 		status_label.text = "TRUK RUSAK TOTAL • KEMBALI KE DEPOT UNTUK SERVIS"
@@ -311,17 +333,21 @@ func _on_contract_pressed() -> void:
 		return
 	if not contract_active:
 		contract_active = true
+		cargo_loaded = true
+		cargo_button.disabled = true
 		contract_button.text = "TUJUAN: GUDANG • ANTARKAN BARANG"
-		status_label.text = "MUATAN DIAMBIL • MENUJU GUDANG"
+		status_label.text = "KONTRAK AKTIF • ANTARKAN " + CARGO_NAMES[cargo_index] + " KE GUDANG"
 		warehouse_marker.visible = true
 	else:
 		status_label.text = "KONTRAK SEDANG BERJALAN • IKUTI PENANDA HIJAU"
 
 func _complete_contract() -> void:
 	contract_active = false
+	cargo_loaded = false
+	cargo_button.disabled = false
 	contract_done = true
 	completed_deliveries += 1
-	var reward := CONTRACT_REWARD + maxi(0, completed_deliveries - 1) * 1500000
+	var reward := cargo_reward + maxi(0, completed_deliveries - 1) * 1500000
 	cash += reward
 	warehouse_marker.visible = false
 	status_label.text = "PENGIRIMAN #" + str(completed_deliveries) + " BERHASIL • +Rp" + _format_money(reward)
@@ -348,7 +374,8 @@ func _service_truck() -> void:
 func _save_game() -> void:
 	var data := ConfigFile.new()
 	data.set_value("company", "cash", cash)
-	data.set_value("company", "deliveries", completed_deliveries)\n\tdata.set_value("company", "cargo_index", cargo_index)
+	data.set_value("company", "deliveries", completed_deliveries)
+	data.set_value("company", "cargo_index", cargo_index)
 	data.set_value("vehicle", "fuel", fuel)
 	data.set_value("vehicle", "condition", truck_condition)
 	var error := data.save("user://business_empire_save.cfg")
@@ -359,11 +386,20 @@ func _load_game() -> void:
 	var data := ConfigFile.new()
 	if data.load("user://business_empire_save.cfg") == OK:
 		cash = int(data.get_value("company", "cash", STARTING_CASH))
-		completed_deliveries = int(data.get_value("company", "deliveries", 0))\n\t\tcargo_index = clampi(int(data.get_value("company", "cargo_index", 0)), 0, CARGO_NAMES.size() - 1)\n\t\tcargo_weight = CARGO_WEIGHTS[cargo_index]\n\t\tcargo_reward = CARGO_REWARDS[cargo_index]
+		completed_deliveries = int(data.get_value("company", "deliveries", 0))
+	\tcargo_index = clampi(int(data.get_value("company", "cargo_index", 0)), 0, CARGO_NAMES.size() - 1)
+	\tcargo_weight = CARGO_WEIGHTS[cargo_index]
+	\tcargo_reward = CARGO_REWARDS[cargo_index]
 		fuel = clampf(float(data.get_value("vehicle", "fuel", 100.0)), 0.0, 100.0)
 		truck_condition = clampf(float(data.get_value("vehicle", "condition", 100.0)), 0.0, 100.0)
 
 func _update_hud() -> void:
+	if cargo_label:
+		cargo_label.text = "MUATAN: " + CARGO_NAMES[cargo_index] + " • " + str(int(cargo_weight)) + " TON"
+	if contract_button and not contract_active:
+		contract_button.text = "AMBIL KONTRAK • Rp" + _format_money(cargo_reward + completed_deliveries * 1500000)
+	if cargo_button:
+		cargo_button.disabled = contract_active
 	if cash_label:
 		cash_label.text = "KAS PERUSAHAAN  •  Rp" + _format_money(cash) + "   |   PENGIRIMAN " + str(completed_deliveries)
 	if vehicle_label:
