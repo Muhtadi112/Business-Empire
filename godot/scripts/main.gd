@@ -387,9 +387,9 @@ func _load_game() -> void:
 	if data.load("user://business_empire_save.cfg") == OK:
 		cash = int(data.get_value("company", "cash", STARTING_CASH))
 		completed_deliveries = int(data.get_value("company", "deliveries", 0))
-	\tcargo_index = clampi(int(data.get_value("company", "cargo_index", 0)), 0, CARGO_NAMES.size() - 1)
-	\tcargo_weight = CARGO_WEIGHTS[cargo_index]
-	\tcargo_reward = CARGO_REWARDS[cargo_index]
+		cargo_index = clampi(int(data.get_value("company", "cargo_index", 0)), 0, CARGO_NAMES.size() - 1)
+		cargo_weight = CARGO_WEIGHTS[cargo_index]
+		cargo_reward = CARGO_REWARDS[cargo_index]
 		fuel = clampf(float(data.get_value("vehicle", "fuel", 100.0)), 0.0, 100.0)
 		truck_condition = clampf(float(data.get_value("vehicle", "condition", 100.0)), 0.0, 100.0)
 
