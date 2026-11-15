@@ -50,6 +50,7 @@ private data class ContractOffer(
 )
 
 private data class GameInvoice(val client: String, val amount: Long, val dueDay: Int)
+private data class ActiveDelivery(val client: String, val amount: Long, val termDays: Int, val remainingHours: Float)
 
 private val contractOffers = listOf(
     ContractOffer(1, "Nusantara Mart", "Barang ritel • 8 ton / 42 m³", 180, 18_000_000, 7_200_000, PaymentTerm.COD, 2, "Dry Box / Wingbox"),
@@ -90,6 +91,14 @@ fun BusinessEmpireApp() {
             }
         )
     }
+    var activeDeliveries by remember {
+        mutableStateOf(
+            prefs.getString("active_deliveries", "")!!.split(";").filter { it.contains("|") }.mapNotNull {
+                val p = it.split("|")
+                if (p.size == 4) runCatching { ActiveDelivery(p[0], p[1].toLong(), p[2].toInt(), p[3].toFloat()) }.getOrNull() else null
+            }
+        )
+    }
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var log by remember {
         mutableStateOf(prefs.getString("log", null)?.split("~!~")?.filter { it.isNotBlank() }
@@ -119,9 +128,10 @@ fun BusinessEmpireApp() {
             .putBoolean("use_toll", useToll).putLong("revenue", revenue).putLong("cogs", cogs)
             .putLong("opex", opex)
             .putString("invoices", invoices.joinToString(";") { "${it.client}|${it.amount}|${it.dueDay}" })
+            .putString("active_deliveries", activeDeliveries.joinToString(";") { "${it.client}|${it.amount}|${it.termDays}|${it.remainingHours}" })
             .putString("log", log.joinToString("~!~")).apply()
     }
-    LaunchedEffect(cash, trucks, truckCondition, driverFatigue, deliveries, day, speed, paused, selectedCountryName, selectedContractId, useToll, revenue, cogs, opex, invoices, log) {
+    LaunchedEffect(cash, trucks, truckCondition, driverFatigue, deliveries, day, speed, paused, selectedCountryName, selectedContractId, useToll, revenue, cogs, opex, invoices, activeDeliveries, log) {
         saveGame()
     }
 
@@ -135,18 +145,10 @@ fun BusinessEmpireApp() {
         if (cash < actualCost) { addLog("Kas tidak cukup untuk membiayai pengiriman. Butuh ${money(actualCost)}."); return }
         cash -= actualCost
         cogs += actualCost
-        revenue += selectedContract.revenue
-        deliveries++
+        activeDeliveries = activeDeliveries + ActiveDelivery(selectedContract.client, selectedContract.revenue, selectedContract.term.days, driveHours.toFloat())
         driverFatigue = (driverFatigue + driveHours.toFloat()).coerceAtMost(9f)
         truckCondition = (truckCondition - (selectedContract.distanceKm / 100).coerceAtLeast(1)).coerceAtLeast(0)
-        val due = day + selectedContract.term.days
-        if (selectedContract.term == PaymentTerm.COD) {
-            cash += selectedContract.revenue
-            addLog("Kontrak ${selectedContract.client} selesai. COD diterima ${money(selectedContract.revenue)}. Biaya ${money(actualCost)}.")
-        } else {
-            invoices = invoices + GameInvoice(selectedContract.client, selectedContract.revenue, due)
-            addLog("Invoice ${selectedContract.client} diterbitkan: ${money(selectedContract.revenue)}, jatuh tempo hari ke-$due.")
-        }
+        addLog("Armada berangkat ke ${selectedContract.client}. Estimasi perjalanan ${"%.1f".format(driveHours)} jam. Biaya ${money(actualCost)} dibayar di muka.")
     }
 
     MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Navy, surface = Panel, onSurface = Color.White)) {
@@ -184,8 +186,8 @@ fun BusinessEmpireApp() {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StatCard("Armada", trucks.toString(), Icons.Default.LocalShipping, Modifier.weight(1f))
-                        StatCard("Pengiriman", deliveries.toString(), Icons.Default.TrendingUp, Modifier.weight(1f))
-                        StatCard("Invoice", invoices.size.toString(), Icons.Default.TrendingUp, Modifier.weight(1f))
+                        StatCard("Selesai", deliveries.toString(), Icons.Default.TrendingUp, Modifier.weight(1f))
+                        StatCard("Berjalan", activeDeliveries.size.toString(), Icons.Default.TrendingUp, Modifier.weight(1f))
                     }
                 }
                 item {
@@ -229,6 +231,28 @@ fun BusinessEmpireApp() {
                     }
                 }
                 item {
+                    SectionTitle("PENGIRIMAN AKTIF")
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            if (activeDeliveries.isEmpty()) {
+                                Text("Belum ada armada dalam perjalanan. Dispatch kontrak untuk memulai pengiriman.", color = Muted, fontSize = 12.sp)
+                            } else {
+                                activeDeliveries.forEach { trip ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(trip.client, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                            Text("DALAM PERJALANAN", color = Green, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Text("Sisa estimasi: ${"%.1f".format(trip.remainingHours)} jam • Nilai kontrak: ${money(trip.amount)}", color = Muted, fontSize = 11.sp)
+                                        LinearProgressIndicator(progress = { (1f - trip.remainingHours / 72f).coerceIn(0.05f, 1f) }, modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                            }
+                            Text("Setiap hari operasional memajukan perjalanan 8 jam. Omzet baru diakui saat barang tiba.", color = Muted, fontSize = 10.sp)
+                        }
+                    }
+                }
+                item {
                     SectionTitle("KONTROL WAKTU & OPERASIONAL")
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { paused = !paused }) {
@@ -244,6 +268,21 @@ fun BusinessEmpireApp() {
                             repeat(speed) {
                                 day++
                                 driverFatigue = (driverFatigue - 6f).coerceAtLeast(0f)
+                                val progressed = activeDeliveries.map { it.copy(remainingHours = it.remainingHours - 8f) }
+                                val arrived = progressed.filter { it.remainingHours <= 0f }
+                                activeDeliveries = progressed.filter { it.remainingHours > 0f }
+                                arrived.forEach { delivery ->
+                                    revenue += delivery.amount
+                                    deliveries++
+                                    if (delivery.termDays == 0) {
+                                        cash += delivery.amount
+                                        addLog("Pengiriman ${delivery.client} tiba. COD diterima ${money(delivery.amount)}.")
+                                    } else {
+                                        val due = day + delivery.termDays
+                                        invoices = invoices + GameInvoice(delivery.client, delivery.amount, due)
+                                        addLog("Pengiriman ${delivery.client} tiba. Invoice ${money(delivery.amount)} jatuh tempo hari ke-$due.")
+                                    }
+                                }
                                 val dueNow = invoices.filter { it.dueDay <= day }
                                 if (dueNow.isNotEmpty()) {
                                     val collected = dueNow.sumOf { it.amount }
@@ -321,7 +360,7 @@ fun BusinessEmpireApp() {
                         }
                     }
                 }
-                item { Text("PROTOTYPE 0.3.0 • Core business loop", color = Muted, fontSize = 10.sp) }
+                item { Text("PROTOTYPE 0.5.0 • Active delivery journey", color = Muted, fontSize = 10.sp) }
             }
         }
     }
