@@ -1,6 +1,8 @@
 package com.muhtadi.businessempire
 
 import android.os.Bundle
+import android.net.Uri
+import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -14,6 +16,7 @@ import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -70,7 +73,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun BusinessEmpireApp() {
     var showSplash by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) { delay(2200); showSplash = false }
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { context.getSharedPreferences("business_empire_save", android.content.Context.MODE_PRIVATE) }
     var cash by remember { mutableLongStateOf(prefs.getLong("cash", 250_000_000L)) }
@@ -156,7 +158,7 @@ fun BusinessEmpireApp() {
     }
 
     if (showSplash) {
-        SplashScreen()
+        SplashScreen(onFinished = { showSplash = false })
     } else {
     MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Navy, surface = Panel, onSurface = Color.White)) {
         Scaffold(containerColor = Navy) { padding ->
@@ -375,27 +377,24 @@ fun BusinessEmpireApp() {
 }
 
 @Composable
-private fun SplashScreen() {
-    androidx.compose.foundation.layout.Box(
+private fun SplashScreen(onFinished: () -> Unit) {
+    AndroidView(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = R.drawable.business_empire_logo),
-                contentDescription = "Business Empire logo",
-                modifier = Modifier.size(132.dp)
-            )
-            Text("BUSINESS EMPIRE", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
-            Text("BY ADI  •  BUILD YOUR EMPIRE", color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            Spacer(Modifier.height(12.dp))
-            LinearProgressIndicator(modifier = Modifier.width(190.dp), color = Green, trackColor = Panel)
-            Text("Menyiapkan perusahaan...", color = Muted, fontSize = 11.sp)
+        factory = { context ->
+            VideoView(context).apply {
+                setVideoURI(Uri.parse("android.resource://${context.packageName}/${R.raw.loading_screen}"))
+                setOnPreparedListener { player ->
+                    player.isLooping = false
+                    start()
+                }
+                setOnCompletionListener { onFinished() }
+                setOnErrorListener { _, _, _ ->
+                    onFinished()
+                    true
+                }
+            }
         }
-    }
+    )
 }
 
 @Composable
