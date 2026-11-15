@@ -52,6 +52,20 @@ func _ready() -> void:
 	_build_hud()
 	_update_hud()
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if event.position.x < 420.0 and event.position.y > 420.0 and joystick_touch == -1:
+				joystick_touch = event.index
+				touch_origin = event.position
+				joystick_vector = Vector2.ZERO
+		elif event.index == joystick_touch:
+			joystick_touch = -1
+			joystick_vector = Vector2.ZERO
+	elif event is InputEventScreenDrag and event.index == joystick_touch:
+		var drag := (event.position - touch_origin) / 82.0
+		joystick_vector = Vector2(clampf(drag.x, -1.0, 1.0), clampf(drag.y, -1.0, 1.0))
+
 func _physics_process(delta: float) -> void:
 	if truck == null:
 		return
@@ -469,8 +483,19 @@ func _build_hud() -> void:
 	service_button.pressed.connect(_service_truck)
 	root.add_child(service_button)
 
-	_make_control_button("◀", Vector2(35, 570), Vector2(90, 90), func(): steering = -1.0, func(): steering = 0.0, root)
-	_make_control_button("▶", Vector2(235, 570), Vector2(90, 90), func(): steering = 1.0, func(): steering = 0.0, root)
+	var steer_hint := _make_label("JOYSTICK KEMUDI", Vector2(45, 680), 12, Color(0.9, 0.94, 0.96), root)
+	steer_hint.size = Vector2(240, 24)
+	var steer_zone := Panel.new()
+	steer_zone.position = Vector2(35, 510)
+	steer_zone.size = Vector2(300, 150)
+	var steer_style := StyleBoxFlat.new()
+	steer_style.bg_color = Color(0.12, 0.18, 0.2, 0.28)
+	steer_style.border_color = Color(0.8, 0.85, 0.85, 0.35)
+	steer_style.set_border_width_all(2)
+	steer_style.set_corner_radius_all(72)
+	steer_zone.add_theme_stylebox_override("panel", steer_style)
+	steer_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(steer_zone)
 	_make_control_button("▲ GAS", Vector2(1080, 565), Vector2(150, 100), func(): throttle = 1.0, func(): throttle = 0.0, root)
 	_make_control_button("▼ REM", Vector2(900, 565), Vector2(150, 100), func(): throttle = -0.65, func(): throttle = 0.0, root)
 	var hint := _make_label("KENDALIKAN TRUK • ANTARKAN MUATAN KE GUDANG", Vector2(420, 655), 13, Color(0.9, 0.94, 0.96), root)
