@@ -73,6 +73,18 @@ jobs:
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
           test -s "$HOME/.android/debug.keystore"
 
+      - name: Extract Kenney asset packs
+        run: |
+          set -e
+          for pack in suburban industrial commercial roads; do
+            archive="$(find "godot/assets/kenney/$pack" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+            test -n "$archive"
+            mkdir -p "godot/assets/kenney/$pack/extracted"
+            unzip -oq "$archive" -d "godot/assets/kenney/$pack/extracted"
+            echo "Extracted $pack from $archive"
+            find "godot/assets/kenney/$pack/extracted" -type f | head -20
+          done
+
       - name: Validate project
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
 
