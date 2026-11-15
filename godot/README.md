@@ -14,3 +14,8 @@ Open this folder in Godot 4.4.1 or newer and run `scenes/main.tscn`.
 
 ## Direction
 Semi-realistic low-poly 3D for Android performance. This is a gameplay foundation, not a final art pass. Next milestones: proper vehicle physics, loading/unloading, individual fleet and drivers, buildable facilities, contracts, AI traffic and save system.
+
+
+## Android APK export
+
+The `Android` export preset targets 64-bit ARM Android devices and landscape orientation. Pushes to `godot-3d-prototype` run the Android export workflow. When the workflow succeeds, download the `Business-Empire-Android-APK` artifact from the GitHub Actions run. This is currently a debug-signed test APK, not a Play Store release build.
