@@ -37,7 +37,14 @@ jobs:
           chmod +x Godot_v4.4.1-stable_linux.x86_64
           wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz
           mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          unzip -q Godot_v4.4.1-stable_export_templates.tpz -d "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          unzip -q Godot_v4.4.1-stable_export_templates.tpz -d "$TEMPLATE_DIR"
+          if [ -d "$TEMPLATE_DIR/templates" ]; then
+            mv "$TEMPLATE_DIR"/templates/* "$TEMPLATE_DIR"/
+            rmdir "$TEMPLATE_DIR/templates"
+          fi
+          test -s "$TEMPLATE_DIR/android_debug.apk"
+          test -s "$TEMPLATE_DIR/android_release.apk"
 
       - name: Configure Godot Android paths
         run: |
