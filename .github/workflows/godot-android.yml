@@ -103,8 +103,14 @@ jobs:
           test -s loading_screen.mp4
           cp logo.jpg godot/assets/branding/logo.jpg
           ffmpeg -y -i loading_screen.mp4 -an -c:v libtheora -q:v 7 godot/assets/branding/loading_screen.ogv
+          ffmpeg -y -i logo.jpg -vf "scale=192:192:force_original_aspect_ratio=decrease,pad=192:192:(ow-iw)/2:(oh-ih)/2:color=#101820" -frames:v 1 godot/assets/branding/app_icon_192.png
+          ffmpeg -y -i logo.jpg -vf "scale=432:432:force_original_aspect_ratio=decrease,pad=432:432:(ow-iw)/2:(oh-ih)/2:color=#101820" -frames:v 1 godot/assets/branding/app_icon_432.png
+          ffmpeg -y -f lavfi -i "color=c=#101820:s=432x432" -frames:v 1 godot/assets/branding/app_icon_bg_432.png
           test -s godot/assets/branding/logo.jpg
           test -s godot/assets/branding/loading_screen.ogv
+          test -s godot/assets/branding/app_icon_192.png
+          test -s godot/assets/branding/app_icon_432.png
+          test -s godot/assets/branding/app_icon_bg_432.png
 
       - name: Validate project
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
