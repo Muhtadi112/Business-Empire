@@ -199,7 +199,6 @@ func _build_world() -> void:
 
 	_add_roadside_details()
 	_add_warehouse()
-	_add_box(self, Vector3(0, 0.15, -75), Vector3(0.5, 0.25, 410), Color(0.94, 0.76, 0.2))
 
 func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
