@@ -161,7 +161,7 @@ func _add_building(pos: Vector3, size: Vector3, color: Color) -> void:
 	# Pakai model Kenney sesuai zona; geometri prosedural hanya fallback.
 	var pack := "commercial" if pos.z > -15.0 else ("suburban" if pos.z > -75.0 else "industrial")
 	var prefix := "building-type-" if pack == "suburban" else "building-"
-	var variant := char(97 + int(abs(pos.x * 2.0 + pos.z)) % 6)
+	var variant := String.chr(97 + int(abs(pos.x * 2.0 + pos.z)) % 6)
 	if _add_kenney_model(pack, prefix + variant, Vector3(pos.x, 0.0, pos.z), Vector3(0.82, 0.82, 0.82)):
 		return
 	_add_box(self, pos, size, color)
