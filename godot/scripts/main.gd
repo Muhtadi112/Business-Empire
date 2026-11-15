@@ -19,6 +19,7 @@ var cash_label: Label
 var status_label: Label
 var speed_label: Label
 var contract_button: Button
+var camera_button: Button
 var warehouse_marker: MeshInstance3D
 var target_position := Vector3(0, 0, -95.0)
 var joystick_vector := Vector2.ZERO
@@ -210,7 +211,7 @@ func _build_hud() -> void:
 	contract_button.pressed.connect(_on_contract_pressed)
 	root.add_child(contract_button)
 
-	var camera_button := Button.new()
+	camera_button = Button.new()
 	camera_button.text = "KAMERA: ORANG KETIGA"
 	camera_button.position = Vector2(18, 118)
 	camera_button.size = Vector2(260, 48)
@@ -246,8 +247,7 @@ func _make_control_button(caption: String, pos: Vector2, button_size: Vector2, o
 
 func _toggle_camera() -> void:
 	camera_first_person = not camera_first_person
-	var camera_button := get_tree().current_scene.find_child("*", true, false)
-	# Camera mode is also reflected in the HUD status for clear feedback.
+	camera_button.text = "KAMERA: KABIN" if camera_first_person else "KAMERA: ORANG KETIGA"
 	if status_label:
 		status_label.text = "KAMERA KABIN • PANDANGAN PENGEMUDI" if camera_first_person else "KAMERA EKSTERNAL • ORANG KETIGA"
 
