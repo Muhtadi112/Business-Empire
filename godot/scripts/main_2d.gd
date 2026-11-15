@@ -75,14 +75,12 @@ func _build_ui() -> void:
 
 	var level_panel := _panel(Color("#263941"))
 	_place(level_panel, 535, 25, 155, 62)
-	add_child(level_panel)
 	level_label = _label("LEVEL 01", 17, Color("#f1c66f"))
 	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_panel.add_child(level_label)
 
 	var wallet := _panel(Color("#1c2b31"))
 	_place(wallet, 24, 112, 672, 105)
-	add_child(wallet)
 	var wallet_title := _label("SALDO PERUSAHAAN", 13, Color("#a9bbb6"))
 	_place(wallet_title, 43, 126, 300, 22)
 	cash_label = _label("Rp 50.000.000", 29, Color("#f4f1e8"))
@@ -96,7 +94,6 @@ func _build_ui() -> void:
 	_place(map_hint, 28, 267, 500, 22)
 	var map := CityMap.new()
 	_place(map, 24, 300, 672, 350)
-	add_child(map)
 
 	var business_title := _label("PORTOFOLIO BISNIS", 19, Color("#f4f1e8"))
 	_place(business_title, 27, 672, 400, 30)
