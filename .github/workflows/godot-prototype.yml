@@ -15,14 +15,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Godot 4.4.1
+      - name: Install Godot 4.4.1 and FFmpeg
         run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
           unzip -q Godot_v4.4.1-stable_linux.x86_64.zip
           chmod +x Godot_v4.4.1-stable_linux.x86_64
 
-      - name: Validate project and GDScript
-        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
+      - name: Prepare generated branding resources
+        run: |
+          set -euo pipefail
+          mkdir -p godot/assets/branding
+          cp logo.jpg godot/assets/branding/logo.jpg
+          ffmpeg -y -i loading_screen.mp4 -an -c:v libtheora -q:v 7 godot/assets/branding/loading_screen.ogv
+          ffmpeg -y -ss 0.5 -i loading_screen.mp4 -frames:v 1 -q:v 2 godot/assets/branding/loading_poster.jpg
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 loading_screen.mp4 | awk '{printf "%.3f", $1}' > godot/assets/branding/loading_duration.txt
+          ffmpeg -y -i logo.jpg -vf "scale=192:192:force_original_aspect_ratio=decrease,pad=192:192:(ow-iw)/2:(oh-ih)/2:color=#101820" -frames:v 1 godot/assets/branding/app_icon_192.png
+          ffmpeg -y -i logo.jpg -vf "scale=432:432:force_original_aspect_ratio=decrease,pad=432:432:(ow-iw)/2:(oh-ih)/2:color=#101820" -frames:v 1 godot/assets/branding/app_icon_432.png
+          ffmpeg -y -f lavfi -i "color=c=#101820:s=432x432" -frames:v 1 godot/assets/branding/app_icon_bg_432.png
+          test -s godot/assets/branding/loading_screen.ogv
+          test -s godot/assets/branding/loading_poster.jpg
+          test -s godot/assets/branding/app_icon_192.png
+          test -s godot/assets/branding/app_icon_432.png
+
+      - name: Import resources and reject GDScript errors
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit 2>&1 | tee build/godot-import.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script|Error opening file 'res://assets/branding/" build/godot-import.log; then
+            echo "Godot resource or script validation failed."
+            exit 1
+          fi
+
+      - name: Run gameplay scene smoke test
+        run: |
+          set -euo pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --quit-after 3 res://scenes/main.tscn 2>&1 | tee build/gameplay-smoke-test.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" build/gameplay-smoke-test.log; then
+            echo "Gameplay scene failed to initialize."
+            exit 1
+          fi
 
       - name: Package Godot project
         run: zip -qr Business-Empire-Godot-Prototype.zip godot -x "godot/.godot/*"
