@@ -158,7 +158,12 @@ func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> Mesh
 	return mesh_instance
 
 func _add_building(pos: Vector3, size: Vector3, color: Color) -> void:
-	# Massa bangunan dengan detail fasad, lis, pintu dan jendela.
+	# Pakai model Kenney sesuai zona; geometri prosedural hanya fallback.
+	var pack := "commercial" if pos.z > -15.0 else ("suburban" if pos.z > -75.0 else "industrial")
+	var prefix := "building-type-" if pack == "suburban" else "building-"
+	var variant := char(97 + int(abs(pos.x * 2.0 + pos.z)) % 6)
+	if _add_kenney_model(pack, prefix + variant, Vector3(pos.x, 0.0, pos.z), Vector3(0.82, 0.82, 0.82)):
+		return
 	_add_box(self, pos, size, color)
 	_add_box(self, Vector3(pos.x, pos.y + size.y * 0.5 + 0.12, pos.z), Vector3(size.x + 0.45, 0.24, size.z + 0.45), Color(0.24, 0.28, 0.3))
 	var floors := maxi(1, int(size.y / 2.5))
@@ -170,7 +175,28 @@ func _add_building(pos: Vector3, size: Vector3, color: Color) -> void:
 	_add_box(self, Vector3(pos.x + size.x * 0.505, 0.95, pos.z), Vector3(0.08, 1.8, 1.25), Color(0.22, 0.17, 0.12))
 	_add_box(self, Vector3(pos.x + size.x * 0.54, 2.15, pos.z), Vector3(0.18, 0.18, size.z * 0.9), Color(0.85, 0.68, 0.28))
 
+func _add_kenney_model(pack: String, model_name: String, pos: Vector3, model_scale: Vector3, yaw: float = 0.0) -> bool:
+	var path := "res://assets/kenney_runtime/%s/%s.glb" % [pack, model_name]
+	if not ResourceLoader.exists(path):
+		return false
+	var packed := load(path) as PackedScene
+	if packed == null:
+		push_warning("Model Kenney gagal dimuat: " + path)
+		return false
+	var instance := packed.instantiate() as Node3D
+	if instance == null:
+		return false
+	instance.position = pos
+	instance.scale = model_scale
+	instance.rotation.y = yaw
+	add_child(instance)
+	return true
+
 func _add_roadside_details() -> void:
+	# Tile jalan Kenney disusun sepanjang koridor utama.
+	for tile_index in range(25):
+		var road_z := 85.0 - float(tile_index) * 10.0
+		_add_kenney_model("roads", "road-straight", Vector3(0, 0.035, road_z), Vector3(1.0, 1.0, 1.0))
 	for side in [-1, 1]:
 		_add_box(self, Vector3(side * 8.8, 0.12, -35), Vector3(2.2, 0.22, 250), Color(0.58, 0.57, 0.51))
 		for i in range(8):
@@ -186,6 +212,9 @@ func _add_roadside_details() -> void:
 	_add_box(self, Vector3(-14.0, 4.9, -42.82), Vector3(5.8, 0.85, 0.04), Color(0.95, 0.88, 0.7))
 
 func _add_tree(pos: Vector3, scale_value: float) -> void:
+	var model := "tree-large" if scale_value > 1.1 else "tree-small"
+	if _add_kenney_model("suburban", model, pos, Vector3.ONE * scale_value * 0.8):
+		return
 	var trunk := MeshInstance3D.new()
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.18 * scale_value
