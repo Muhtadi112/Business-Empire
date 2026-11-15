@@ -4,8 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Pause
@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,13 +27,7 @@ private val Panel = Color(0xFF1B283B)
 private val Green = Color(0xFF31D69A)
 private val Muted = Color(0xFF9AA9BD)
 
-private data class CountryOption(
-    val name: String,
-    val currencyCode: String,
-    val localeTag: String,
-    val idrPerUnit: Double
-)
-
+private data class CountryOption(val name: String, val currencyCode: String, val localeTag: String, val idrPerUnit: Double)
 private val countryOptions = listOf(
     CountryOption("Indonesia", "IDR", "id-ID", 1.0),
     CountryOption("United States", "USD", "en-US", 16_000.0),
@@ -42,6 +35,26 @@ private val countryOptions = listOf(
     CountryOption("Germany", "EUR", "de-DE", 17_500.0),
     CountryOption("Japan", "JPY", "ja-JP", 105.0),
     CountryOption("Singapore", "SGD", "en-SG", 12_000.0)
+)
+
+private data class ContractOffer(
+    val id: Int,
+    val client: String,
+    val cargo: String,
+    val distanceKm: Int,
+    val revenue: Long,
+    val roadCost: Long,
+    val term: PaymentTerm,
+    val deadlineDays: Int,
+    val requiredTruck: String
+)
+
+private data class GameInvoice(val client: String, val amount: Long, val dueDay: Int)
+
+private val contractOffers = listOf(
+    ContractOffer(1, "Nusantara Mart", "Barang ritel • 8 ton / 42 m³", 180, 18_000_000, 7_200_000, PaymentTerm.COD, 2, "Dry Box / Wingbox"),
+    ContractOffer(2, "FreshFood Distribution", "Makanan beku • 5 ton / 28 m³", 260, 31_000_000, 13_500_000, PaymentTerm.NET_14, 3, "Reefer"),
+    ContractOffer(3, "Karya Baja Industri", "Baja konstruksi • 18 ton / 20 m³", 95, 24_000_000, 9_500_000, PaymentTerm.NET_30, 2, "Flatbed / Trailer")
 )
 
 class MainActivity : ComponentActivity() {
@@ -53,7 +66,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun BusinessEmpireApp() {
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { context.getSharedPreferences("business_empire_save", android.content.Context.MODE_PRIVATE) }
     var cash by remember { mutableLongStateOf(prefs.getLong("cash", 250_000_000L)) }
     var trucks by remember { mutableIntStateOf(prefs.getInt("trucks", 2)) }
@@ -62,85 +75,153 @@ fun BusinessEmpireApp() {
     var speed by remember { mutableIntStateOf(prefs.getInt("speed", 1)) }
     var paused by remember { mutableStateOf(prefs.getBoolean("paused", false)) }
     var selectedCountryName by remember { mutableStateOf(prefs.getString("country", "Indonesia") ?: "Indonesia") }
+    var selectedContractId by remember { mutableIntStateOf(prefs.getInt("selected_contract", 1)) }
+    var useToll by remember { mutableStateOf(prefs.getBoolean("use_toll", true)) }
+    var revenue by remember { mutableLongStateOf(prefs.getLong("revenue", 0L)) }
+    var cogs by remember { mutableLongStateOf(prefs.getLong("cogs", 0L)) }
+    var opex by remember { mutableLongStateOf(prefs.getLong("opex", 0L)) }
+    var invoices by remember {
+        mutableStateOf(
+            prefs.getString("invoices", "")!!.split(";").filter { it.contains("|") }.mapNotNull {
+                val p = it.split("|")
+                if (p.size == 3) runCatching { GameInvoice(p[0], p[1].toLong(), p[2].toInt()) }.getOrNull() else null
+            }
+        )
+    }
     var countryMenuExpanded by remember { mutableStateOf(false) }
+    var log by remember {
+        mutableStateOf(prefs.getString("log", null)?.split("~!~")?.filter { it.isNotBlank() }
+            ?: listOf("Muhtadi Group resmi beroperasi. Pilih kontrak pertamamu."))
+    }
+
     val selectedCountry = countryOptions.firstOrNull { it.name == selectedCountryName } ?: countryOptions.first()
     val formatter = remember(selectedCountry) {
         NumberFormat.getCurrencyInstance(Locale.forLanguageTag(selectedCountry.localeTag)).apply {
-            this.currency = java.util.Currency.getInstance(selectedCountry.currencyCode)
-            maximumFractionDigits = if (selectedCountry.currencyCode == "JPY") 0 else 2
+            currency = java.util.Currency.getInstance(selectedCountry.currencyCode)
+            maximumFractionDigits = if (selectedCountry.currencyCode == "JPY") 0 else 0
         }
     }
-    fun money(amountInIdr: Long): String =
-        formatter.format(amountInIdr.toDouble() / selectedCountry.idrPerUnit)
-    var log by remember {
-        mutableStateOf(
-            prefs.getString("log", null)
-                ?.split("\\n")
-                ?.filter { it.isNotBlank() }
-                ?: listOf("Perusahaan didirikan. Selamat datang, CEO!")
-        )
+    fun money(idr: Long): String = formatter.format(idr.toDouble() / selectedCountry.idrPerUnit)
+    val receivables = invoices.sumOf { it.amount }
+    val selectedContract = contractOffers.first { it.id == selectedContractId }
+    val dailyOverhead = trucks * 180_000L + 250_000L
+    val cashColor = if (cash < 20_000_000L) Color(0xFFFF7777) else Green
+
+    fun addLog(message: String) { log = (listOf(message) + log).take(30) }
+    fun saveGame() {
+        prefs.edit()
+            .putLong("cash", cash).putInt("trucks", trucks).putInt("deliveries", deliveries)
+            .putInt("day", day).putInt("speed", speed).putBoolean("paused", paused)
+            .putString("country", selectedCountryName).putInt("selected_contract", selectedContractId)
+            .putBoolean("use_toll", useToll).putLong("revenue", revenue).putLong("cogs", cogs)
+            .putLong("opex", opex)
+            .putString("invoices", invoices.joinToString(";") { "${it.client}|${it.amount}|${it.dueDay}" })
+            .putString("log", log.joinToString("~!~")).apply()
+    }
+    LaunchedEffect(cash, trucks, deliveries, day, speed, paused, selectedCountryName, selectedContractId, useToll, revenue, cogs, opex, invoices, log) {
+        saveGame()
     }
 
-    // Simpan otomatis setiap data permainan berubah.
-    LaunchedEffect(cash, trucks, deliveries, day, speed, paused, selectedCountryName, log) {
-        prefs.edit()
-            .putLong("cash", cash)
-            .putInt("trucks", trucks)
-            .putInt("deliveries", deliveries)
-            .putInt("day", day)
-            .putInt("speed", speed)
-            .putBoolean("paused", paused)
-            .putString("country", selectedCountryName)
-            .putString("log", log.take(30).joinToString("\\n"))
-            .apply()
+    fun dispatchContract() {
+        val routeExtra = if (useToll) selectedContract.distanceKm * 1_100L else 0L
+        val actualCost = selectedContract.roadCost + routeExtra
+        if (trucks <= 0) { addLog("Pengiriman gagal: armada tidak tersedia."); return }
+        if (cash < actualCost) { addLog("Kas tidak cukup untuk membiayai pengiriman. Butuh ${money(actualCost)}."); return }
+        cash -= actualCost
+        cogs += actualCost
+        revenue += selectedContract.revenue
+        deliveries++
+        val due = day + selectedContract.term.days
+        if (selectedContract.term == PaymentTerm.COD) {
+            cash += selectedContract.revenue
+            addLog("Kontrak ${selectedContract.client} selesai. COD diterima ${money(selectedContract.revenue)}. Biaya ${money(actualCost)}.")
+        } else {
+            invoices = invoices + GameInvoice(selectedContract.client, selectedContract.revenue, due)
+            addLog("Invoice ${selectedContract.client} diterbitkan: ${money(selectedContract.revenue)}, jatuh tempo hari ke-$due.")
+        }
     }
+
     MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Navy, surface = Panel, onSurface = Color.White)) {
         Scaffold(containerColor = Navy) { padding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                contentPadding = PaddingValues(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
-                    Text("BUSINESS EMPIRE", color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                    Text("Dashboard CEO", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                    Text("Hari $day • ${if (paused) "Dijeda" else "Berjalan ${speed}x"}", color = Muted)
-                    Spacer(Modifier.height(8.dp))
+                    Text("BUSINESS EMPIRE • BY ADI", color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text("CEO Control Center", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                    Text("Hari $day  •  ${if (paused) "PAUSED" else "SIMULASI ${speed}x"}", color = Muted)
                     Box {
-                        OutlinedButton(onClick = { countryMenuExpanded = true }) {
-                            Text("🌐 ${selectedCountry.name} • ${selectedCountry.currencyCode}")
-                        }
+                        OutlinedButton(onClick = { countryMenuExpanded = true }) { Text("🌐 ${selectedCountry.name} • ${selectedCountry.currencyCode}") }
                         DropdownMenu(expanded = countryMenuExpanded, onDismissRequest = { countryMenuExpanded = false }) {
                             countryOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text("${option.name} (${option.currencyCode})") },
-                                    onClick = {
-                                        selectedCountryName = option.name
-                                        countryMenuExpanded = false
-                                        log = listOf("Basis negara diubah ke ${option.name}.") + log
-                                    }
-                                )
+                                DropdownMenuItem(text = { Text("${option.name} (${option.currencyCode})") }, onClick = {
+                                    selectedCountryName = option.name; countryMenuExpanded = false
+                                })
                             }
                         }
                     }
                 }
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
-                        Column(Modifier.padding(20.dp)) {
-                            Text("KAS PERUSAHAAN", color = Muted, fontSize = 12.sp)
-                            Text(money(cash), color = Green, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-                            Text("Muhtadi Group", color = Color.White, fontSize = 15.sp)
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("KAS TERSEDIA", color = Muted, fontSize = 11.sp)
+                            Text(money(cash), color = cashColor, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                            Text("Piutang belum cair: ${money(receivables)}", color = Color.White, fontSize = 13.sp)
+                            if (cash < 20_000_000L) Text("PERINGATAN: Likuiditas menipis. Tunda ekspansi.", color = Color(0xFFFF7777), fontSize = 12.sp)
                         }
                     }
                 }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StatCard("Armada truk", trucks.toString(), Icons.Default.LocalShipping, Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatCard("Armada", trucks.toString(), Icons.Default.LocalShipping, Modifier.weight(1f))
                         StatCard("Pengiriman", deliveries.toString(), Icons.Default.TrendingUp, Modifier.weight(1f))
+                        StatCard("Invoice", invoices.size.toString(), Icons.Default.TrendingUp, Modifier.weight(1f))
                     }
                 }
                 item {
-                    SectionTitle("KONTROL WAKTU")
+                    SectionTitle("MORNING BRIEFING")
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Biaya kantor harian: ${money(dailyOverhead)}", color = Color.White)
+                            Text("Tagihan jatuh tempo: ${invoices.filter { it.dueDay <= day }.size}", color = Muted)
+                            Text("Omzet kumulatif: ${money(revenue)}", color = Muted)
+                            Text("HPP kumulatif: ${money(cogs)}", color = Muted)
+                            Text("Laba kotor: ${money(revenue - cogs)}", color = if (revenue >= cogs) Green else Color(0xFFFF7777), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                item {
+                    SectionTitle("TENDER & DISPATCH")
+                    contractOffers.forEach { offer ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = if (selectedContractId == offer.id) Color(0xFF233D43) else Panel),
+                            shape = RoundedCornerShape(14.dp),
+                            onClick = { selectedContractId = offer.id }
+                        ) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(offer.client, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                    if (selectedContractId == offer.id) Text("DIPILIH", color = Green, fontSize = 10.sp)
+                                }
+                                Text(offer.cargo, color = Muted, fontSize = 12.sp)
+                                Text("Rute ${offer.distanceKm} km • ${offer.requiredTruck}", color = Muted, fontSize = 12.sp)
+                                Text("Nilai ${money(offer.revenue)} • Estimasi biaya ${money(offer.roadCost)} • ${offer.term.name}", color = Green, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Jalur tol (lebih cepat, lebih mahal)", color = Color.White, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                        Switch(checked = useToll, onCheckedChange = { useToll = it })
+                    }
+                    Text("Biaya rute dipotong dari kas saat dispatch. Pembayaran NET masuk sebagai piutang, bukan uang tunai.", color = Muted, fontSize = 11.sp)
+                    Button(onClick = { dispatchContract() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Navy)) {
+                        Text("Kirim armada • ${selectedContract.client}", fontWeight = FontWeight.Bold)
+                    }
+                }
+                item {
+                    SectionTitle("KONTROL WAKTU & OPERASIONAL")
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { paused = !paused }) {
                             Icon(if (paused) Icons.Default.PlayArrow else Icons.Default.Pause, contentDescription = "Pause", tint = Green)
@@ -150,65 +231,89 @@ fun BusinessEmpireApp() {
                         }
                     }
                     Button(onClick = {
-                        if (!paused) {
-                            day += speed
-                            val income = trucks * 1_500_000L * speed
-                            val cost = trucks * 450_000L * speed
-                            cash += income - cost
-                            deliveries += trucks * speed
-                            log = listOf("Hari $day: ${trucks * speed} pengiriman. Laba ${money(income - cost)}.") + log
+                        if (paused) { addLog("Simulasi dijeda. Tekan play untuk melanjutkan.") }
+                        else {
+                            repeat(speed) {
+                                day++
+                                val dueNow = invoices.filter { it.dueDay <= day }
+                                if (dueNow.isNotEmpty()) {
+                                    val collected = dueNow.sumOf { it.amount }
+                                    cash += collected
+                                    invoices = invoices - dueNow.toSet()
+                                    addLog("Pembayaran invoice diterima: ${money(collected)}.")
+                                }
+                                if (cash >= dailyOverhead) {
+                                    cash -= dailyOverhead; opex += dailyOverhead
+                                } else {
+                                    addLog("Kas tidak cukup membayar biaya kantor hari ke-$day!")
+                                }
+                            }
+                            addLog("Hari maju ke $day. Biaya kantor harian ${money(dailyOverhead)}.")
                         }
                     }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Navy)) {
-                        Text("Jalankan simulasi", fontWeight = FontWeight.Bold)
+                        Text("Akhiri hari / Lanjutkan waktu", fontWeight = FontWeight.Bold)
                     }
                 }
                 item {
-                    SectionTitle("MANAJEMEN LOGISTIK")
+                    SectionTitle("KEUANGAN KORPORASI")
                     Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.LocalShipping, null, tint = Green)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Beli truk baru", color = Color.White, fontWeight = FontWeight.SemiBold)
-                            }
-                            Text("Harga unit: ${money(75_000_000L)}", color = Muted)
+                        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            FinanceLine("Omzet", revenue, ::money)
+                            FinanceLine("HPP / biaya jalan", -cogs, ::money)
+                            FinanceLine("OPEX / kantor", -opex, ::money)
+                            Divider(color = Muted.copy(alpha = .3f))
+                            FinanceLine("Laba operasional sementara", revenue - cogs - opex, ::money, true)
+                        }
+                    }
+                }
+                item {
+                    SectionTitle("MANAJEMEN ARMADA")
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Truk operasional: $trucks", color = Color.White)
+                            Text("Harga unit: ${money(75_000_000L)} • Beban kantor harian naik sesuai jumlah armada.", color = Muted, fontSize = 12.sp)
                             Button(onClick = {
-                                if (cash >= 75_000_000L) {
-                                    cash -= 75_000_000L
-                                    trucks++
-                                    log = listOf("Truk baru dibeli. Total armada: $trucks.") + log
-                                } else log = listOf("Dana tidak cukup untuk membeli truk.") + log
-                            }, modifier = Modifier.fillMaxWidth()) { Text("Beli truk — Rp75 juta") }
+                                if (cash >= 75_000_000L) { cash -= 75_000_000L; trucks++; addLog("Truk baru dibeli. Armada menjadi $trucks unit.") }
+                                else addLog("Pembelian gagal: kas tidak cukup.")
+                            }, modifier = Modifier.fillMaxWidth()) { Text("Beli truk • ${money(75_000_000L)}") }
                         }
                     }
                 }
                 item {
                     SectionTitle("AKTIVITAS TERBARU")
                     Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            log.take(6).forEach { Text("• $it", color = Muted, fontSize = 13.sp) }
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            log.take(8).forEach { Text("• $it", color = Muted, fontSize = 12.sp) }
                         }
                     }
                 }
-                item { Text("BUSINESS EMPIRE • Prototype 0.2.0", color = Muted, fontSize = 11.sp) }
+                item { Text("PROTOTYPE 0.3.0 • Core business loop", color = Muted, fontSize = 10.sp) }
             }
         }
     }
 }
 
 @Composable
+private fun FinanceLine(label: String, amount: Long, money: (Long) -> String, emphasize: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = if (emphasize) Color.White else Muted, modifier = Modifier.weight(1f), fontSize = 12.sp)
+        Text(money(amount), color = if (amount < 0) Color(0xFFFF8888) else if (emphasize) Green else Color.White, fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp)
+    }
+}
+
+@Composable
 private fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.padding(16.dp)) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Icon(icon, null, tint = Green)
-            Spacer(Modifier.height(8.dp))
-            Text(value, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text(title, color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(value, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = Muted, fontSize = 11.sp)
         }
     }
 }
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+    Text(text, color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
 }
