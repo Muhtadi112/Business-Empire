@@ -41,6 +41,8 @@ var target_position := Vector3(0, 0, -185.0)
 var joystick_vector := Vector2.ZERO
 var touch_origin := Vector2.ZERO
 var joystick_touch := -1
+var pause_panel: PanelContainer
+var pause_button: Button
 
 func _ready() -> void:
 	_load_game()
@@ -414,6 +416,7 @@ func _build_hud() -> void:
 	add_child(layer)
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
 	layer.add_child(root)
 
 	var top_panel := ColorRect.new()
@@ -426,6 +429,14 @@ func _build_hud() -> void:
 	cargo_label = _make_label("MUATAN: PAKET ELEKTRONIK • 2 TON", Vector2(36, 108), 14, Color(0.95, 0.82, 0.4), root)
 	vehicle_label = _make_label("BBM 100%   •   KONDISI 100%", Vector2(36, 88), 14, Color.WHITE, root)
 	speed_label = _make_label("0 KM/J", Vector2(1090, 30), 24, Color.WHITE, root)
+	pause_button = Button.new()
+	pause_button.text = "Ⅱ  PAUSE"
+	pause_button.position = Vector2(1080, 82)
+	pause_button.size = Vector2(150, 48)
+	pause_button.add_theme_font_size_override("font_size", 16)
+	pause_button.pressed.connect(_toggle_pause)
+	root.add_child(pause_button)
+	_build_pause_panel(root)
 
 	cargo_button = Button.new()
 	cargo_button.text = "GANTI JENIS MUATAN"
@@ -465,6 +476,54 @@ func _build_hud() -> void:
 	_make_control_button("▼ REM", Vector2(900, 565), Vector2(150, 100), func(): throttle = -0.65, func(): throttle = 0.0, root)
 	var hint := _make_label("KENDALIKAN TRUK • ANTARKAN MUATAN KE GUDANG", Vector2(420, 655), 13, Color(0.9, 0.94, 0.96), root)
 	hint.size = Vector2(450, 28)
+
+
+func _build_pause_panel(parent: Control) -> void:
+	pause_panel = PanelContainer.new()
+	pause_panel.visible = false
+	pause_panel.set_anchors_preset(Control.PRESET_CENTER)
+	pause_panel.position = Vector2(-190, -145)
+	pause_panel.size = Vector2(380, 290)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.035, 0.07, 0.1, 0.97)
+	panel_style.border_color = Color(0.82, 0.62, 0.27)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(12)
+	panel_style.content_margin_left = 24
+	panel_style.content_margin_right = 24
+	panel_style.content_margin_top = 22
+	panel_style.content_margin_bottom = 22
+	pause_panel.add_theme_stylebox_override("panel", panel_style)
+	parent.add_child(pause_panel)
+	var actions := VBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	pause_panel.add_child(actions)
+	var heading := Label.new()
+	heading.text = "GAME DIJEDA"
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_font_size_override("font_size", 25)
+	heading.add_theme_color_override("font_color", Color(0.95, 0.82, 0.5))
+	actions.add_child(heading)
+	var resume := Button.new()
+	resume.text = "LANJUTKAN"
+	resume.custom_minimum_size = Vector2(300, 52)
+	resume.pressed.connect(_toggle_pause)
+	actions.add_child(resume)
+	var menu := Button.new()
+	menu.text = "KEMBALI KE MENU UTAMA"
+	menu.custom_minimum_size = Vector2(300, 52)
+	menu.pressed.connect(_return_to_menu)
+	actions.add_child(menu)
+
+func _toggle_pause() -> void:
+	var should_pause := not get_tree().paused
+	get_tree().paused = should_pause
+	pause_panel.visible = should_pause
+	pause_button.text = "▶  LANJUT" if should_pause else "Ⅱ  PAUSE"
+
+func _return_to_menu() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _make_label(text_value: String, pos: Vector2, font_size: int, color: Color, parent: Control) -> Label:
 	var label := Label.new()
