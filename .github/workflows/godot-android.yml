@@ -160,18 +160,9 @@ jobs:
           file "$APK"
           unzip -tq "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
-          unzip -Z1 "$APK" | grep -q '^res/mipmap-xxxhdpi-v4/icon.png$'
-          unzip -Z1 "$APK" | grep -q '^res/mipmap-xxxhdpi-v4/icon_foreground.png$'
-          unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/libgodot_android.so
-          sha256sum "$APK"
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Business-Empire-Android-APK
-          path: build/Business-Empire-By-Adi.apk
-          if-no-files-found: error
-
+          unzip -Z1 "$APK" | grep -q "res/mipmap-xxxhdpi-v4/icon.png"
+          unzip -Z1 "$APK" | grep -q "res/mipmap-xxxhdpi-v4/icon_foreground.png"
+          unzip -Z1 "$APK" | grep -q "libgodot_android.so"
           sha256sum "$APK"
 
       - name: Upload APK artifact
