@@ -212,6 +212,7 @@ func _build_world() -> void:
 		_add_kenney_model("roads", "road-straight", Vector3(0, 0.09, z), Vector3(0.45, 0.45, 0.45))
 
 	_add_roadside_details()
+	_add_district_signs()
 	_add_warehouse()
 
 func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
@@ -305,6 +306,32 @@ func _add_streetlight(pos: Vector3) -> void:
 	add_child(pole)
 	_add_box(self, pos + Vector3(0.65, 5.85, 0), Vector3(1.35, 0.12, 0.22), Color(0.25, 0.28, 0.3))
 	_add_box(self, pos + Vector3(1.15, 5.72, 0), Vector3(0.42, 0.08, 0.3), Color(0.95, 0.88, 0.62))
+
+func _add_district_signs() -> void:
+	_add_district_sign("KAWASAN NIAGA", Vector3(-22.0, 0.0, -15.0), Color("#dca84d"))
+	_add_district_sign("PERMUKIMAN", Vector3(22.0, 0.0, -88.0), Color("#5d9d75"))
+	_add_district_sign("KAWASAN INDUSTRI", Vector3(-22.0, 0.0, -145.0), Color("#668da5"))
+	# Traffic signal poles to make major intersections easier to read.
+	for z in [-78.0, -128.0]:
+		for side in [-1, 1]:
+			var x := float(side) * 7.8
+			_add_box(self, Vector3(x, 2.0, z - 5.0), Vector3(0.16, 4.0, 0.16), Color("#30383a"))
+			_add_box(self, Vector3(x, 3.5, z - 5.0), Vector3(0.65, 1.65, 0.55), Color("#202729"))
+			_add_box(self, Vector3(x, 4.0, z - 4.7), Vector3(0.28, 0.28, 0.12), Color("#a83e35"))
+			_add_box(self, Vector3(x, 3.5, z - 4.7), Vector3(0.28, 0.28, 0.12), Color("#d5a944"))
+			_add_box(self, Vector3(x, 3.0, z - 4.7), Vector3(0.28, 0.28, 0.12), Color("#39945d"))
+
+func _add_district_sign(caption: String, pos: Vector3, accent_color: Color) -> void:
+	_add_box(self, pos + Vector3(0, 2.1, 0), Vector3(0.18, 4.2, 0.18), Color("#353d3c"))
+	_add_box(self, pos + Vector3(0, 4.0, 0), Vector3(8.8, 1.35, 0.28), Color("#182a2d"))
+	_add_box(self, pos + Vector3(0, 4.0, -0.17), Vector3(8.1, 0.92, 0.035), accent_color)
+	var sign_label := Label3D.new()
+	sign_label.text = caption
+	sign_label.font_size = 44
+	sign_label.pixel_size = 0.012
+	sign_label.modulate = Color("#172329")
+	sign_label.position = pos + Vector3(0, 3.78, -0.22)
+	add_child(sign_label)
 
 func _add_warehouse() -> void:
 	# Terminal distribusi: model industri Kenney, kontainer, tangki dan area parkir.
