@@ -63,7 +63,7 @@ func _input(event: InputEvent) -> void:
 			joystick_touch = -1
 			joystick_vector = Vector2.ZERO
 	elif event is InputEventScreenDrag and event.index == joystick_touch:
-		var drag := (event.position - touch_origin) / 82.0
+		var drag: Vector2 = (event.position - touch_origin) / 82.0
 		joystick_vector = Vector2(clampf(drag.x, -1.0, 1.0), clampf(drag.y, -1.0, 1.0))
 
 func _physics_process(delta: float) -> void:
@@ -234,7 +234,25 @@ func _add_building(pos: Vector3, size: Vector3, color: Color) -> void:
 	var prefix := "building-type-" if pack == "suburban" else "building-"
 	var variant := String.chr(97 + int(abs(pos.x * 2.0 + pos.z)) % 6)
 	if not _add_kenney_model(pack, prefix + variant, Vector3(pos.x, 0.0, pos.z), Vector3(0.82, 0.82, 0.82)):
-		push_warning("Bangunan Kenney tidak ditemukan: " + pack + "/" + prefix + variant)
+		_add_procedural_building(pos, size, color, int(abs(pos.x + pos.z)) % 3)
+
+func _add_procedural_building(pos: Vector3, size: Vector3, wall_color: Color, style_index: int) -> void:
+	# Fallback visual permanen agar blok kota tetap terisi saat model eksternal gagal dimuat.
+	var center := pos + Vector3(0.0, size.y * 0.5, 0.0)
+	_add_box(self, center, size, wall_color)
+	_add_box(self, center + Vector3(0.0, size.y * 0.5 + 0.12, 0.0), Vector3(size.x + 0.45, 0.24, size.z + 0.45), Color(0.19, 0.23, 0.25))
+	var road_side := -1.0 if pos.x > 0.0 else 1.0
+	var facade_x := pos.x + road_side * (size.x * 0.5 + 0.045)
+	var glass_material := Color("#8fb8c3") if style_index != 1 else Color("#d4c38b")
+	var floors := maxi(1, int(size.y / 2.5))
+	for floor_index in range(floors):
+		var window_y := 1.1 + float(floor_index) * 2.2
+		if window_y > size.y - 0.45:
+			continue
+		for window_index in range(2):
+			var window_z := pos.z - size.z * 0.25 + float(window_index) * size.z * 0.5
+			_add_box(self, Vector3(facade_x, window_y, window_z), Vector3(0.09, 1.1, maxf(0.8, size.z * 0.22)), glass_material)
+	_add_box(self, Vector3(facade_x, 0.9, pos.z + size.z * 0.28), Vector3(0.1, 1.8, 1.1), Color("#34434a"))
 
 func _add_kenney_model(pack: String, model_name: String, pos: Vector3, model_scale: Vector3, yaw: float = 0.0) -> bool:
 	var path := "res://assets/kenney_runtime/%s/%s.glb" % [pack, model_name]
@@ -341,7 +359,7 @@ func _add_warehouse() -> void:
 	_add_kenney_model("industrial", "detail-tank", Vector3(22, 0, -207), Vector3(1.4, 1.4, 1.4))
 	_add_kenney_model("industrial", "chimney-large", Vector3(-16, 0, -222), Vector3(1.1, 1.1, 1.1))
 	for i in range(3):
-		var container_name := ["shipping-container-a", "shipping-container-b", "shipping-container-c"][i]
+		var container_name: String = ["shipping-container-a", "shipping-container-b", "shipping-container-c"][i]
 		_add_kenney_model("industrial", container_name, Vector3(-25.0 + float(i) * 12.0, 0.0, -177.0), Vector3(1.2, 1.2, 1.2))
 	# Pagar perimeter terminal.
 	for x in range(-38, 39, 4):
