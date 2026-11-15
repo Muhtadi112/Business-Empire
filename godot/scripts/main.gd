@@ -71,6 +71,14 @@ func _build_world() -> void:
 	add_child(world_env)
 
 	_add_box(self, Vector3(0, -0.6, -35), Vector3(220, 1, 260), Color(0.25, 0.42, 0.25))
+	var ground_body := StaticBody3D.new()
+	ground_body.position = Vector3(0, -0.6, -35)
+	var ground_collision := CollisionShape3D.new()
+	var ground_shape := BoxShape3D.new()
+	ground_shape.size = Vector3(220, 1, 260)
+	ground_collision.shape = ground_shape
+	ground_body.add_child(ground_collision)
+	add_child(ground_body)
 	_add_box(self, Vector3(0, -0.05, -35), Vector3(12, 0.12, 250), Color(0.12, 0.13, 0.14))
 	for z in range(15, -151, -12):
 		_add_box(self, Vector3(0, 0.025, z), Vector3(0.18, 0.025, 5.0), Color(0.92, 0.86, 0.55))
