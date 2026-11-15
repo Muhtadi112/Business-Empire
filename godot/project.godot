@@ -4,7 +4,7 @@ config_version=5
 
 [application]
 config/name="Business Empire - By Adi"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 
 [display]
@@ -21,4 +21,3 @@ renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.42, 0.66, 0.82, 1)
-
