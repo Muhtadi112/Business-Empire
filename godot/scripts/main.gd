@@ -5,11 +5,18 @@ const CONTRACT_REWARD := 12500000
 const TRUCK_ACCELERATION := 10.0
 const MAX_SPEED := 25.0
 const TURN_RATE := 1.35
+const CARGO_NAMES := ["PAKET ELEKTRONIK", "BAHAN BANGUNAN", "HASIL PERTANIAN"]
+const CARGO_WEIGHTS := [2.0, 8.0, 5.0]
+const CARGO_REWARDS := [12500000, 18500000, 15000000]
 
 var cash: int = STARTING_CASH
 var contract_active := false
 var contract_done := false
 var completed_deliveries := 0
+var cargo_index := 0
+var cargo_weight := 2.0
+var cargo_reward := 12500000
+var cargo_loaded := false
 var fuel := 100.0
 var truck_condition := 100.0
 var impact_cooldown := 0.0
@@ -27,6 +34,8 @@ var vehicle_label: Label
 var service_button: Button
 var contract_button: Button
 var camera_button: Button
+var cargo_button: Button
+var cargo_label: Label
 var warehouse_marker: MeshInstance3D
 var target_position := Vector3(0, 0, -95.0)
 var joystick_vector := Vector2.ZERO
@@ -233,7 +242,7 @@ func _build_hud() -> void:
 	top_panel.size = Vector2(430, 88)
 	root.add_child(top_panel)
 	cash_label = _make_label("KAS PERUSAHAAN", Vector2(36, 24), 18, Color(0.35, 0.95, 0.68), root)
-	status_label = _make_label("TRUK SIAP • AMBIL KONTRAK", Vector2(36, 58), 14, Color.WHITE, root)
+	status_label = _make_label("TRUK SIAP • PILIH MUATAN DAN AMBIL KONTRAK", Vector2(36, 58), 14, Color.WHITE, root)\n\tcargo_label = _make_label("MUATAN: PAKET ELEKTRONIK • 2 TON", Vector2(36, 108), 14, Color(0.95, 0.82, 0.4), root)
 	vehicle_label = _make_label("BBM 100%   •   KONDISI 100%", Vector2(36, 88), 14, Color.WHITE, root)
 	speed_label = _make_label("0 KM/J", Vector2(1090, 30), 24, Color.WHITE, root)
 
@@ -316,7 +325,7 @@ func _complete_contract() -> void:
 	cash += reward
 	warehouse_marker.visible = false
 	status_label.text = "PENGIRIMAN #" + str(completed_deliveries) + " BERHASIL • +Rp" + _format_money(reward)
-	contract_button.text = "KONTRAK BERIKUTNYA • Rp" + _format_money(CONTRACT_REWARD + completed_deliveries * 1500000)
+	contract_button.text = "AMBIL KONTRAK • Rp" + _format_money(cargo_reward + completed_deliveries * 1500000)
 	contract_done = false
 	_save_game()
 	_update_hud()
@@ -339,7 +348,7 @@ func _service_truck() -> void:
 func _save_game() -> void:
 	var data := ConfigFile.new()
 	data.set_value("company", "cash", cash)
-	data.set_value("company", "deliveries", completed_deliveries)
+	data.set_value("company", "deliveries", completed_deliveries)\n\tdata.set_value("company", "cargo_index", cargo_index)
 	data.set_value("vehicle", "fuel", fuel)
 	data.set_value("vehicle", "condition", truck_condition)
 	var error := data.save("user://business_empire_save.cfg")
@@ -350,7 +359,7 @@ func _load_game() -> void:
 	var data := ConfigFile.new()
 	if data.load("user://business_empire_save.cfg") == OK:
 		cash = int(data.get_value("company", "cash", STARTING_CASH))
-		completed_deliveries = int(data.get_value("company", "deliveries", 0))
+		completed_deliveries = int(data.get_value("company", "deliveries", 0))\n\t\tcargo_index = clampi(int(data.get_value("company", "cargo_index", 0)), 0, CARGO_NAMES.size() - 1)\n\t\tcargo_weight = CARGO_WEIGHTS[cargo_index]\n\t\tcargo_reward = CARGO_REWARDS[cargo_index]
 		fuel = clampf(float(data.get_value("vehicle", "fuel", 100.0)), 0.0, 100.0)
 		truck_condition = clampf(float(data.get_value("vehicle", "condition", 100.0)), 0.0, 100.0)
 
