@@ -1,6 +1,6 @@
 extends Control
 
-const GAME_SCENE := "res://scenes/main.tscn"
+const GAME_SCENE := "res://scenes/loading_screen.tscn"
 
 var settings_panel: PanelContainer
 var music_slider: HSlider
@@ -53,6 +53,15 @@ func _build_menu() -> void:
 	left.alignment = BoxContainer.ALIGNMENT_CENTER
 	left.add_theme_constant_override("separation", 14)
 	layout.add_child(left)
+
+	var logo_path := "res://assets/branding/logo.jpg"
+	if ResourceLoader.exists(logo_path):
+		var logo := TextureRect.new()
+		logo.texture = load(logo_path) as Texture2D
+		logo.custom_minimum_size = Vector2(220, 112)
+		logo.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		left.add_child(logo)
 
 	var eyebrow := _label("ADI INTERACTIVE  /  BUSINESS SIMULATION", 15, Color("#e6ad4c"))
 	left.add_child(eyebrow)
