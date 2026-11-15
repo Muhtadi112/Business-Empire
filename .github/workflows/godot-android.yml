@@ -1,0 +1,64 @@
+name: Godot Android APK
+
+on:
+  push:
+    branches: [ "godot-3d-prototype" ]
+    paths:
+      - "godot/**"
+      - ".github/workflows/godot-prototype.yml"
+      - ".github/workflows/godot-android.yml"
+  workflow_dispatch:
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Godot 4.4.1 and export templates
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.4.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          unzip -q Godot_v4.4.1-stable_export_templates.tpz -d "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+
+      - name: Configure Godot Android paths
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          EOF
+
+      - name: Validate project
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
+
+      - name: Export debug APK
+        run: |
+          mkdir -p build
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --export-debug "Android" build/Business-Empire-By-Adi.apk
+          test -s build/Business-Empire-By-Adi.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Business-Empire-Android-APK
+          path: build/Business-Empire-By-Adi.apk
+          if-no-files-found: error
