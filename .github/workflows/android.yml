@@ -12,7 +12,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Prepare uploaded brand logo\n        run: |\n          mkdir -p app/src/main/res/drawable-nodpi\n          curl -L --fail --silent --show-error https://raw.githubusercontent.com/Muhtadi112/Business-Empire/main/logo.jpg -o app/src/main/res/drawable-nodpi/business_empire_logo.jpg\n\n      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
