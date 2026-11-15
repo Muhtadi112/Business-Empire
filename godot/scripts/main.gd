@@ -9,6 +9,10 @@ const TURN_RATE := 1.35
 var cash: int = STARTING_CASH
 var contract_active := false
 var contract_done := false
+var completed_deliveries := 0
+var fuel := 100.0
+var truck_condition := 100.0
+var impact_cooldown := 0.0
 var speed := 0.0
 var throttle := 0.0
 var steering := 0.0
@@ -18,6 +22,8 @@ var camera_first_person := false
 var cash_label: Label
 var status_label: Label
 var speed_label: Label
+var vehicle_label: Label
+var service_button: Button
 var contract_button: Button
 var camera_button: Button
 var warehouse_marker: MeshInstance3D
@@ -27,6 +33,7 @@ var touch_origin := Vector2.ZERO
 var joystick_touch := -1
 
 func _ready() -> void:
+	_load_game()
 	_build_world()
 	_build_truck()
 	_build_camera()
@@ -40,6 +47,9 @@ func _physics_process(delta: float) -> void:
 	if joystick_vector.length() > 0.12:
 		throttle = -joystick_vector.y
 		steer_input = joystick_vector.x
+	impact_cooldown = maxf(0.0, impact_cooldown - delta)
+	if fuel <= 0.0:
+		throttle = minf(throttle, 0.0)
 	var desired_accel := throttle * TRUCK_ACCELERATION
 	speed = move_toward(speed, desired_accel * MAX_SPEED / TRUCK_ACCELERATION, TRUCK_ACCELERATION * delta)
 	if abs(throttle) < 0.05:
@@ -49,6 +59,15 @@ func _physics_process(delta: float) -> void:
 	truck.velocity = -truck.global_basis.z * speed
 	truck.velocity.y = -9.8
 	truck.move_and_slide()
+	fuel = maxf(0.0, fuel - abs(speed) * delta * 0.004)
+	if truck.get_slide_collision_count() > 0 and abs(speed) > 12.0 and impact_cooldown <= 0.0:
+		truck_condition = maxf(0.0, truck_condition - minf(12.0, abs(speed) * 0.35))
+		impact_cooldown = 1.2
+		status_label.text = "BENTURAN! KONDISI TRUK " + str(roundi(truck_condition)) + "%"
+	if truck_condition <= 0.0:
+		speed = move_toward(speed, 0.0, 12.0 * delta)
+	if vehicle_label:
+		vehicle_label.text = "BBM " + str(roundi(fuel)) + "%   •   KONDISI " + str(roundi(truck_condition)) + "%"
 	if camera:
 		if camera_first_person:
 			var cab_position := truck.global_position + truck.global_basis * Vector3(0, 2.15, -0.65)
@@ -201,6 +220,7 @@ func _build_hud() -> void:
 	root.add_child(top_panel)
 	cash_label = _make_label("KAS PERUSAHAAN", Vector2(36, 24), 18, Color(0.35, 0.95, 0.68), root)
 	status_label = _make_label("TRUK SIAP • AMBIL KONTRAK", Vector2(36, 58), 14, Color.WHITE, root)
+	vehicle_label = _make_label("BBM 100%   •   KONDISI 100%", Vector2(36, 88), 14, Color.WHITE, root)
 	speed_label = _make_label("0 KM/J", Vector2(1090, 30), 24, Color.WHITE, root)
 
 	contract_button = Button.new()
@@ -218,6 +238,14 @@ func _build_hud() -> void:
 	camera_button.add_theme_font_size_override("font_size", 15)
 	camera_button.pressed.connect(_toggle_camera)
 	root.add_child(camera_button)
+
+	service_button = Button.new()
+	service_button.text = "SERVIS & ISI BBM"
+	service_button.position = Vector2(18, 174)
+	service_button.size = Vector2(260, 48)
+	service_button.add_theme_font_size_override("font_size", 15)
+	service_button.pressed.connect(_service_truck)
+	root.add_child(service_button)
 
 	_make_control_button("◀", Vector2(35, 570), Vector2(90, 90), func(): steering = -1.0, func(): steering = 0.0, root)
 	_make_control_button("▶", Vector2(235, 570), Vector2(90, 90), func(): steering = 1.0, func(): steering = 0.0, root)
@@ -252,8 +280,11 @@ func _toggle_camera() -> void:
 		status_label.text = "KAMERA KABIN • PANDANGAN PENGEMUDI" if camera_first_person else "KAMERA EKSTERNAL • ORANG KETIGA"
 
 func _on_contract_pressed() -> void:
-	if contract_done:
-		status_label.text = "KONTRAK SELESAI • CARI KONTRAK BARU"
+	if truck_condition <= 0.0:
+		status_label.text = "TRUK RUSAK TOTAL • KEMBALI KE DEPOT UNTUK SERVIS"
+		return
+	if fuel <= 0.0:
+		status_label.text = "BBM HABIS • KEMBALI KE DEPOT UNTUK ISI BBM"
 		return
 	if not contract_active:
 		contract_active = true
@@ -266,15 +297,54 @@ func _on_contract_pressed() -> void:
 func _complete_contract() -> void:
 	contract_active = false
 	contract_done = true
-	cash += CONTRACT_REWARD
+	completed_deliveries += 1
+	var reward := CONTRACT_REWARD + maxi(0, completed_deliveries - 1) * 1500000
+	cash += reward
 	warehouse_marker.visible = false
-	status_label.text = "PENGIRIMAN BERHASIL • +Rp12.500.000"
-	contract_button.text = "KONTRAK SELESAI"
+	status_label.text = "PENGIRIMAN #" + str(completed_deliveries) + " BERHASIL • +Rp" + _format_money(reward)
+	contract_button.text = "KONTRAK BERIKUTNYA • Rp" + _format_money(CONTRACT_REWARD + completed_deliveries * 1500000)
+	contract_done = false
+	_save_game()
 	_update_hud()
+
+func _service_truck() -> void:
+	if truck.global_position.distance_to(Vector3(0, 0.8, 12)) > 18.0:
+		status_label.text = "DEPOT TERLALU JAUH • KEMBALI KE AREA AWAL"
+		return
+	var service_cost := int((100.0 - fuel) * 3500.0 + (100.0 - truck_condition) * 85000.0)
+	if service_cost > cash:
+		status_label.text = "KAS TIDAK CUKUP • BIAYA SERVIS Rp" + _format_money(service_cost)
+		return
+	cash -= service_cost
+	fuel = 100.0
+	truck_condition = 100.0
+	status_label.text = "TRUK SELESAI DISERVIS • BIAYA Rp" + _format_money(service_cost)
+	_save_game()
+	_update_hud()
+
+func _save_game() -> void:
+	var data := ConfigFile.new()
+	data.set_value("company", "cash", cash)
+	data.set_value("company", "deliveries", completed_deliveries)
+	data.set_value("vehicle", "fuel", fuel)
+	data.set_value("vehicle", "condition", truck_condition)
+	var error := data.save("user://business_empire_save.cfg")
+	if error != OK:
+		push_warning("Gagal menyimpan progres: " + str(error))
+
+func _load_game() -> void:
+	var data := ConfigFile.new()
+	if data.load("user://business_empire_save.cfg") == OK:
+		cash = int(data.get_value("company", "cash", STARTING_CASH))
+		completed_deliveries = int(data.get_value("company", "deliveries", 0))
+		fuel = clampf(float(data.get_value("vehicle", "fuel", 100.0)), 0.0, 100.0)
+		truck_condition = clampf(float(data.get_value("vehicle", "condition", 100.0)), 0.0, 100.0)
 
 func _update_hud() -> void:
 	if cash_label:
-		cash_label.text = "KAS PERUSAHAAN  •  Rp" + _format_money(cash)
+		cash_label.text = "KAS PERUSAHAAN  •  Rp" + _format_money(cash) + "   |   PENGIRIMAN " + str(completed_deliveries)
+	if vehicle_label:
+		vehicle_label.text = "BBM " + str(roundi(fuel)) + "%   •   KONDISI " + str(roundi(truck_condition)) + "%"
 
 func _update_speed_label() -> void:
 	if speed_label:
