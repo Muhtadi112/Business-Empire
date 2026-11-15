@@ -12,10 +12,11 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Prepare uploaded brand logo
+      - name: Prepare uploaded brand assets
         run: |
-          mkdir -p app/src/main/res/drawable-nodpi
+          mkdir -p app/src/main/res/drawable-nodpi app/src/main/res/raw
           curl -L --fail --silent --show-error https://raw.githubusercontent.com/Muhtadi112/Business-Empire/main/logo.jpg -o app/src/main/res/drawable-nodpi/business_empire_logo.jpg
+          curl -L --fail --silent --show-error https://raw.githubusercontent.com/Muhtadi112/Business-Empire/main/loading_screen.mp4 -o app/src/main/res/raw/loading_screen.mp4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
