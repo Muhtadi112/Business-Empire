@@ -73,7 +73,7 @@ jobs:
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
           test -s "$HOME/.android/debug.keystore"
 
-      - name: Extract Kenney asset packs
+      - name: Extract and stage Kenney 3D models
         run: |
           set -e
           for pack in suburban industrial commercial roads; do
@@ -81,9 +81,15 @@ jobs:
             test -n "$archive"
             mkdir -p "godot/assets/kenney/$pack/extracted"
             unzip -oq "$archive" -d "godot/assets/kenney/$pack/extracted"
-            echo "Extracted $pack from $archive"
-            find "godot/assets/kenney/$pack/extracted" -type f | head -20
+            mkdir -p "godot/assets/kenney_runtime/$pack"
+            find "godot/assets/kenney/$pack/extracted" -type f -iname '*.glb' -exec cp -f {} "godot/assets/kenney_runtime/$pack/" \;
+            echo "$pack: $(find "godot/assets/kenney_runtime/$pack" -maxdepth 1 -type f -name '*.glb' | wc -l) GLB models staged"
           done
+          test -s godot/assets/kenney_runtime/roads/road-straight.glb
+          test -s godot/assets/kenney_runtime/suburban/tree-large.glb
+          test -s godot/assets/kenney_runtime/suburban/building-type-a.glb
+          test -s godot/assets/kenney_runtime/industrial/building-a.glb
+          test -s godot/assets/kenney_runtime/commercial/building-a.glb
 
       - name: Validate project
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
