@@ -37,7 +37,7 @@ var camera_button: Button
 var cargo_button: Button
 var cargo_label: Label
 var warehouse_marker: MeshInstance3D
-var target_position := Vector3(0, 0, -95.0)
+var target_position := Vector3(0, 0, -185.0)
 var joystick_vector := Vector2.ZERO
 var touch_origin := Vector2.ZERO
 var joystick_touch := -1
@@ -105,44 +105,95 @@ func _notification(what: int) -> void:
 		_save_game()
 
 func _build_world() -> void:
+	# MAP: kota kecil Indonesia dengan koridor utama, pusat komersial,
+	# kawasan permukiman, industri, dan terminal logistik.
 	var world_env := WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.17, 0.35, 0.55)
-	sky_material.sky_horizon_color = Color(0.65, 0.78, 0.86)
+	sky_material.sky_top_color = Color(0.16, 0.32, 0.49)
+	sky_material.sky_horizon_color = Color(0.72, 0.79, 0.82)
 	environment.sky.sky_material = sky_material
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.72, 0.78, 0.86)
-	environment.ambient_light_energy = 0.8
+	environment.ambient_light_color = Color(0.78, 0.81, 0.82)
+	environment.ambient_light_energy = 0.9
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	world_env.environment = environment
 	add_child(world_env)
 
-	_add_box(self, Vector3(0, -0.6, -35), Vector3(220, 1, 260), Color(0.25, 0.42, 0.25))
+	# Tanah utama dan bidang rumput di luar kota.
+	_add_box(self, Vector3(0, -0.65, -75), Vector3(260, 1.2, 430), Color(0.27, 0.39, 0.25))
 	var ground_body := StaticBody3D.new()
-	ground_body.position = Vector3(0, -0.6, -35)
+	ground_body.position = Vector3(0, -0.65, -75)
 	var ground_collision := CollisionShape3D.new()
 	var ground_shape := BoxShape3D.new()
-	ground_shape.size = Vector3(220, 1, 260)
+	ground_shape.size = Vector3(260, 1.2, 430)
 	ground_collision.shape = ground_shape
 	ground_body.add_child(ground_collision)
 	add_child(ground_body)
-	_add_box(self, Vector3(0, -0.05, -35), Vector3(12, 0.12, 250), Color(0.12, 0.13, 0.14))
-	for z in range(15, -151, -12):
-		_add_box(self, Vector3(0, 0.025, z), Vector3(0.18, 0.025, 5.0), Color(0.92, 0.86, 0.55))
+
+	# Jalan arteri utama dua arah.
+	_add_box(self, Vector3(0, -0.015, -75), Vector3(13.5, 0.12, 410), Color(0.105, 0.115, 0.12))
+	_add_box(self, Vector3(-7.1, 0.0, -75), Vector3(1.0, 0.14, 410), Color(0.48, 0.46, 0.39))
+	_add_box(self, Vector3(7.1, 0.0, -75), Vector3(1.0, 0.14, 410), Color(0.48, 0.46, 0.39))
+	for z in range(125, -276, -10):
+		_add_box(self, Vector3(0, 0.065, float(z)), Vector3(0.16, 0.025, 4.5), Color(0.94, 0.82, 0.48))
 	for side in [-1, 1]:
-		_add_box(self, Vector3(side * 7.5, 0.0, -35), Vector3(2.0, 0.12, 250), Color(0.48, 0.48, 0.43))
-		for i in range(9):
-			var zpos := 10.0 - float(i) * 22.0
-			var x := float(side) * (19.0 + float(i % 3) * 7.0)
-			var size := Vector3(12.0 + float(i % 2) * 4.0, 7.0 + float(i % 3) * 2.0, 12.0)
-			_add_building(Vector3(x, size.y / 2.0 - 0.1, zpos), size, [Color(0.72,0.68,0.57), Color(0.57,0.68,0.72), Color(0.69,0.61,0.52)][i % 3])
+		_add_box(self, Vector3(float(side) * 6.55, 0.075, -75), Vector3(0.12, 0.035, 410), Color(0.9, 0.9, 0.82))
+
+	# Jalan penghubung ke blok kota pada tiga distrik.
+	for z in [-28.0, -78.0, -128.0, -178.0, -228.0]:
+		_add_box(self, Vector3(0, 0.015, z), Vector3(100, 0.12, 8.0), Color(0.13, 0.14, 0.145))
+		for x in range(-45, 46, 8):
+			_add_box(self, Vector3(float(x), 0.09, z), Vector3(3.5, 0.025, 0.16), Color(0.88, 0.84, 0.72))
+
+	# Trotoar, jalur hijau, lampu jalan dan pohon peneduh.
+	for side in [-1, 1]:
+		_add_box(self, Vector3(float(side) * 8.6, 0.10, -75), Vector3(2.0, 0.22, 410), Color(0.55, 0.54, 0.48))
+		_add_box(self, Vector3(float(side) * 11.0, 0.015, -75), Vector3(2.8, 0.12, 410), Color(0.31, 0.43, 0.27))
+		for i in range(17):
+			var zpos := 115.0 - float(i) * 23.0
+			_add_tree(Vector3(float(side) * (10.6 + float(i % 2) * 1.2), 0.0, zpos), 0.95 + float(i % 3) * 0.12)
+			if i % 2 == 0:
+				_add_streetlight(Vector3(float(side) * 8.0, 0.0, zpos - 8.0))
+
+	# Pusat komersial: ruko dan bangunan usaha.
+	for i in range(6):
+		var zc := 8.0 - float(i) * 12.0
+		for side in [-1, 1]:
+			var x := float(side) * (22.0 + float(i % 2) * 5.0)
+			_add_building(Vector3(x, 0.0, zc), Vector3(11, 9, 10), Color(0.68, 0.67, 0.59))
+	# Area parkir dan marka depan pertokoan.
+	_add_box(self, Vector3(25, 0.025, -23), Vector3(30, 0.12, 18), Color(0.19, 0.20, 0.20))
+	for i in range(7):
+		_add_box(self, Vector3(12.5 + float(i) * 4.1, 0.10, -23), Vector3(0.12, 0.025, 12), Color(0.88, 0.88, 0.82))
+
+	# Permukiman: rumah lebih renggang, pepohonan dan halaman.
+	for i in range(6):
+		var zs := -55.0 - float(i) * 12.0
+		for side in [-1, 1]:
+			var x := float(side) * (25.0 + float(i % 2) * 10.0)
+			_add_building(Vector3(x, 0.0, zs), Vector3(10, 6, 9), Color(0.72, 0.64, 0.51))
+			_add_tree(Vector3(x + float(side) * 8.0, 0.0, zs - 3.0), 0.9)
+
+	# Zona industri: gudang, workshop dan halaman truk.
+	for i in range(5):
+		var zi := -145.0 - float(i) * 16.0
+		for side in [-1, 1]:
+			var x := float(side) * (27.0 + float(i % 2) * 7.0)
+			_add_building(Vector3(x, 0.0, zi), Vector3(17, 8, 15), Color(0.49, 0.55, 0.57))
+	_add_box(self, Vector3(0, 0.04, -190), Vector3(74, 0.14, 34), Color(0.22, 0.23, 0.22))
+	for i in range(9):
+		_add_box(self, Vector3(-31.0 + float(i) * 7.5, 0.13, -190), Vector3(0.13, 0.025, 24), Color(0.91, 0.82, 0.48))
+
+	# Model jalan modular Kenney sebagai detail visual pada persimpangan.
+	for z in [-28.0, -78.0, -128.0, -178.0]:
+		_add_kenney_model("roads", "road-straight", Vector3(0, 0.09, z), Vector3(0.45, 0.45, 0.45))
+
 	_add_roadside_details()
 	_add_warehouse()
-	_add_box(self, Vector3(0, 0.15, -35), Vector3(0.5, 0.25, 250), Color(0.94, 0.76, 0.2))
-	_add_box(self, Vector3(-5.85, 0.08, -35), Vector3(0.12, 0.08, 250), Color(0.95, 0.95, 0.86))
-	_add_box(self, Vector3(5.85, 0.08, -35), Vector3(0.12, 0.08, 250), Color(0.95, 0.95, 0.86))
+	_add_box(self, Vector3(0, 0.15, -75), Vector3(0.5, 0.25, 410), Color(0.94, 0.76, 0.2))
 
 func _add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
@@ -193,23 +244,17 @@ func _add_kenney_model(pack: String, model_name: String, pos: Vector3, model_sca
 	return true
 
 func _add_roadside_details() -> void:
-	# Tile jalan Kenney disusun sepanjang koridor utama.
-	for tile_index in range(25):
-		var road_z := 85.0 - float(tile_index) * 10.0
-		_add_kenney_model("roads", "road-straight", Vector3(0, 0.035, road_z), Vector3(1.0, 1.0, 1.0))
+	# Papan petunjuk distrik di sisi jalan.
+	_add_box(self, Vector3(-16.0, 2.6, -42), Vector3(0.22, 5.2, 0.22), Color(0.24, 0.26, 0.27))
+	_add_box(self, Vector3(-16.0, 4.7, -42), Vector3(8.0, 1.6, 0.28), Color(0.12, 0.31, 0.27))
+	_add_box(self, Vector3(-16.0, 4.72, -41.82), Vector3(7.1, 0.9, 0.035), Color(0.9, 0.87, 0.72))
+	# Pembatas jalan dan drainase di pinggir arteri.
 	for side in [-1, 1]:
-		_add_box(self, Vector3(side * 8.8, 0.12, -35), Vector3(2.2, 0.22, 250), Color(0.58, 0.57, 0.51))
-		for i in range(8):
-			var z := 8.0 - float(i) * 24.0
-			var x := float(side) * (13.5 + float(i % 2) * 2.0)
-			_add_tree(Vector3(x, 0.0, z), 1.0 + float(i % 3) * 0.15)
-			if i % 2 == 0:
-				_add_streetlight(Vector3(float(side) * 7.8, 0.0, z - 7.0))
-	_add_box(self, Vector3(0, 0.08, -14), Vector3(11.8, 0.12, 0.5), Color(0.92, 0.88, 0.72))
-	_add_box(self, Vector3(0, 0.08, -56), Vector3(11.8, 0.12, 0.5), Color(0.92, 0.88, 0.72))
-	_add_box(self, Vector3(-14.0, 2.5, -43), Vector3(0.25, 5.0, 0.25), Color(0.25, 0.27, 0.28))
-	_add_box(self, Vector3(-14.0, 4.9, -43), Vector3(7.0, 1.5, 0.25), Color(0.78, 0.16, 0.12))
-	_add_box(self, Vector3(-14.0, 4.9, -42.82), Vector3(5.8, 0.85, 0.04), Color(0.95, 0.88, 0.7))
+		_add_box(self, Vector3(float(side) * 12.7, 0.12, -75), Vector3(0.22, 0.24, 410), Color(0.39, 0.4, 0.37))
+	# Marka zebra cross pada persimpangan.
+	for z in [-28.0, -78.0, -128.0, -178.0]:
+		for i in range(7):
+			_add_box(self, Vector3(-4.5 + float(i) * 1.5, 0.105, z - 5.0), Vector3(0.85, 0.025, 1.2), Color(0.88, 0.88, 0.82))
 
 func _add_tree(pos: Vector3, scale_value: float) -> void:
 	var model := "tree-large" if scale_value > 1.1 else "tree-small"
@@ -253,10 +298,24 @@ func _add_streetlight(pos: Vector3) -> void:
 	_add_box(self, pos + Vector3(1.15, 5.72, 0), Vector3(0.42, 0.08, 0.3), Color(0.95, 0.88, 0.62))
 
 func _add_warehouse() -> void:
-	_add_box(self, Vector3(0, 3.0, -103), Vector3(24, 6, 20), Color(0.55, 0.59, 0.62))
-	_add_box(self, Vector3(0, 0.4, -92.8), Vector3(8, 0.8, 0.3), Color(0.17, 0.2, 0.22))
-	_add_box(self, Vector3(-6, 1.8, -92.5), Vector3(3.5, 3.6, 0.25), Color(0.22, 0.34, 0.42))
-	warehouse_marker = _add_box(self, target_position, Vector3(10, 0.15, 10), Color(0.2, 0.8, 0.45))
+	# Terminal distribusi utama di ujung rute.
+	_add_box(self, Vector3(0, 0.10, -185), Vector3(76, 0.2, 42), Color(0.24, 0.25, 0.24))
+	_add_box(self, Vector3(0, 4.2, -205), Vector3(30, 8.4, 22), Color(0.52, 0.58, 0.6))
+	_add_box(self, Vector3(0, 8.45, -205), Vector3(30.8, 0.35, 22.8), Color(0.22, 0.27, 0.29))
+	# Pintu loading dock.
+	for x in [-10.0, -3.5, 3.5, 10.0]:
+		_add_box(self, Vector3(x, 2.2, -193.85), Vector3(4.8, 4.4, 0.22), Color(0.17, 0.25, 0.29))
+		_add_box(self, Vector3(x, 0.25, -192.9), Vector3(5.2, 0.35, 1.8), Color(0.63, 0.65, 0.63))
+	# Pagar perimeter terminal.
+	for x in range(-38, 39, 4):
+		for z in [-225, -165]:
+			_add_box(self, Vector3(float(x), 1.0, float(z)), Vector3(0.12, 2.0, 0.12), Color(0.3, 0.33, 0.33))
+	for z in range(-225, -164, 4):
+		for x in [-38.0, 38.0]:
+			_add_box(self, Vector3(x, 1.0, float(z)), Vector3(0.12, 2.0, 0.12), Color(0.3, 0.33, 0.33))
+	_add_box(self, Vector3(0, 1.9, -165), Vector3(11, 3.8, 0.25), Color(0.14, 0.28, 0.24))
+	# Marker area bongkar muat.
+	warehouse_marker = _add_box(self, target_position, Vector3(12, 0.16, 12), Color(0.2, 0.8, 0.45))
 	var marker_material := StandardMaterial3D.new()
 	marker_material.albedo_color = Color(0.1, 0.9, 0.4, 0.35)
 	marker_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
