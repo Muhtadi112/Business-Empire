@@ -70,6 +70,8 @@ fun BusinessEmpireApp() {
     val prefs = remember { context.getSharedPreferences("business_empire_save", android.content.Context.MODE_PRIVATE) }
     var cash by remember { mutableLongStateOf(prefs.getLong("cash", 250_000_000L)) }
     var trucks by remember { mutableIntStateOf(prefs.getInt("trucks", 2)) }
+    var truckCondition by remember { mutableIntStateOf(prefs.getInt("truck_condition", 100)) }
+    var driverFatigue by remember { mutableFloatStateOf(prefs.getFloat("driver_fatigue", 0f)) }
     var deliveries by remember { mutableIntStateOf(prefs.getInt("deliveries", 0)) }
     var day by remember { mutableIntStateOf(prefs.getInt("day", 1)) }
     var speed by remember { mutableIntStateOf(prefs.getInt("speed", 1)) }
@@ -110,7 +112,8 @@ fun BusinessEmpireApp() {
     fun addLog(message: String) { log = (listOf(message) + log).take(30) }
     fun saveGame() {
         prefs.edit()
-            .putLong("cash", cash).putInt("trucks", trucks).putInt("deliveries", deliveries)
+            .putLong("cash", cash).putInt("trucks", trucks).putInt("truck_condition", truckCondition)
+            .putFloat("driver_fatigue", driverFatigue).putInt("deliveries", deliveries)
             .putInt("day", day).putInt("speed", speed).putBoolean("paused", paused)
             .putString("country", selectedCountryName).putInt("selected_contract", selectedContractId)
             .putBoolean("use_toll", useToll).putLong("revenue", revenue).putLong("cogs", cogs)
@@ -118,7 +121,7 @@ fun BusinessEmpireApp() {
             .putString("invoices", invoices.joinToString(";") { "${it.client}|${it.amount}|${it.dueDay}" })
             .putString("log", log.joinToString("~!~")).apply()
     }
-    LaunchedEffect(cash, trucks, deliveries, day, speed, paused, selectedCountryName, selectedContractId, useToll, revenue, cogs, opex, invoices, log) {
+    LaunchedEffect(cash, trucks, truckCondition, driverFatigue, deliveries, day, speed, paused, selectedCountryName, selectedContractId, useToll, revenue, cogs, opex, invoices, log) {
         saveGame()
     }
 
@@ -126,11 +129,16 @@ fun BusinessEmpireApp() {
         val routeExtra = if (useToll) selectedContract.distanceKm * 1_100L else 0L
         val actualCost = selectedContract.roadCost + routeExtra
         if (trucks <= 0) { addLog("Pengiriman gagal: armada tidak tersedia."); return }
+        val driveHours = selectedContract.distanceKm.toDouble() / if (useToll) 65.0 else 35.0
+        if (driverFatigue + driveHours > 9.0) { addLog("Dispatch ditolak: pengemudi melewati batas aman 9 jam. Istirahatkan pengemudi dengan melanjutkan hari."); return }
+        if (truckCondition < 20) { addLog("Dispatch ditolak: kondisi truk kritis. Lakukan servis sebelum berangkat."); return }
         if (cash < actualCost) { addLog("Kas tidak cukup untuk membiayai pengiriman. Butuh ${money(actualCost)}."); return }
         cash -= actualCost
         cogs += actualCost
         revenue += selectedContract.revenue
         deliveries++
+        driverFatigue = (driverFatigue + driveHours.toFloat()).coerceAtMost(9f)
+        truckCondition = (truckCondition - (selectedContract.distanceKm / 100).coerceAtLeast(1)).coerceAtLeast(0)
         val due = day + selectedContract.term.days
         if (selectedContract.term == PaymentTerm.COD) {
             cash += selectedContract.revenue
@@ -235,6 +243,7 @@ fun BusinessEmpireApp() {
                         else {
                             repeat(speed) {
                                 day++
+                                driverFatigue = (driverFatigue - 6f).coerceAtLeast(0f)
                                 val dueNow = invoices.filter { it.dueDay <= day }
                                 if (dueNow.isNotEmpty()) {
                                     val collected = dueNow.sumOf { it.amount }
@@ -263,6 +272,31 @@ fun BusinessEmpireApp() {
                             FinanceLine("OPEX / kantor", -opex, ::money)
                             Divider(color = Muted.copy(alpha = .3f))
                             FinanceLine("Laba operasional sementara", revenue - cogs - opex, ::money, true)
+                        }
+                    }
+                }
+                item {
+                    SectionTitle("KESELAMATAN & PERAWATAN ARMADA")
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Kondisi kendaraan", color = Color.White, modifier = Modifier.weight(1f))
+                                Text("$truckCondition%", color = if (truckCondition < 30) Color(0xFFFF7777) else Green, fontWeight = FontWeight.Bold)
+                            }
+                            LinearProgressIndicator(progress = { truckCondition / 100f }, modifier = Modifier.fillMaxWidth(), color = if (truckCondition < 30) Color(0xFFFF7777) else Green)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Kelelahan pengemudi", color = Color.White, modifier = Modifier.weight(1f))
+                                Text("${"%.1f".format(driverFatigue)}/9 jam", color = if (driverFatigue >= 7f) Color(0xFFFF7777) else Green, fontWeight = FontWeight.Bold)
+                            }
+                            LinearProgressIndicator(progress = { (driverFatigue / 9f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = if (driverFatigue >= 7f) Color(0xFFFF7777) else Green)
+                            Text("Setiap pengiriman menambah kelelahan dan keausan. Pengemudi pulih 6 jam per hari.", color = Muted, fontSize = 11.sp)
+                            Button(onClick = {
+                                val serviceCost = trucks * 2_500_000L
+                                if (cash >= serviceCost) {
+                                    cash -= serviceCost; opex += serviceCost; truckCondition = 100
+                                    addLog("Servis preventif selesai. Biaya ${money(serviceCost)}; armada kembali 100%.")
+                                } else addLog("Servis gagal: kas tidak cukup. Butuh ${money(serviceCost)}.")
+                            }, modifier = Modifier.fillMaxWidth()) { Text("Servis seluruh armada • ${money(trucks * 2_500_000L)}") }
                         }
                     }
                 }
