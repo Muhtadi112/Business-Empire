@@ -103,17 +103,40 @@ jobs:
           test -s loading_screen.mp4
           cp logo.jpg godot/assets/branding/logo.jpg
           ffmpeg -y -i loading_screen.mp4 -an -c:v libtheora -q:v 7 godot/assets/branding/loading_screen.ogv
+          ffmpeg -y -ss 0.5 -i loading_screen.mp4 -frames:v 1 -q:v 2 godot/assets/branding/loading_poster.jpg
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 loading_screen.mp4 | awk '{printf "%.3f", $1}' > godot/assets/branding/loading_duration.txt
           ffmpeg -y -i logo.jpg -vf "scale=192:192:force_original_aspect_ratio=decrease,pad=192:192:(ow-iw)/2:(oh-ih)/2:color=#101820" -frames:v 1 godot/assets/branding/app_icon_192.png
           ffmpeg -y -i logo.jpg -vf "scale=432:432:force_original_aspect_ratio=decrease,pad=432:432:(ow-iw)/2:(oh-ih)/2:color=#101820" -frames:v 1 godot/assets/branding/app_icon_432.png
           ffmpeg -y -f lavfi -i "color=c=#101820:s=432x432" -frames:v 1 godot/assets/branding/app_icon_bg_432.png
           test -s godot/assets/branding/logo.jpg
           test -s godot/assets/branding/loading_screen.ogv
+          test -s godot/assets/branding/loading_poster.jpg
+          test -s godot/assets/branding/loading_duration.txt
           test -s godot/assets/branding/app_icon_192.png
           test -s godot/assets/branding/app_icon_432.png
           test -s godot/assets/branding/app_icon_bg_432.png
 
-      - name: Validate project
-        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
+      - name: Import resources and reject GDScript errors
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit 2>&1 | tee build/godot-import.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script|Error opening file 'res://assets/branding/" build/godot-import.log; then
+            echo "Godot resource or script validation failed."
+            exit 1
+          fi
+          test -s godot/.godot/imported/loading_screen.ogv-*
+          test -s godot/assets/branding/app_icon_192.png
+          test -s godot/assets/branding/app_icon_432.png
+
+      - name: Run gameplay scene smoke test
+        run: |
+          set -euo pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --quit-after 3 res://scenes/main.tscn 2>&1 | tee build/gameplay-smoke-test.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" build/gameplay-smoke-test.log; then
+            echo "Gameplay scene failed to initialize."
+            exit 1
+          fi
 
       - name: Export debug APK
         env:
@@ -135,6 +158,33 @@ jobs:
           file "$APK"
           unzip -tq "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          unzip -Z1 "$APK" | grep -q '^res/mipmap-xxxhdpi-v4/icon.png
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Business-Empire-Android-APK
+          path: build/Business-Empire-By-Adi.apk
+          if-no-files-found: error
+
+          unzip -Z1 "$APK" | grep -q '^res/mipmap-xxxhdpi-v4/icon_foreground.png
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Business-Empire-Android-APK
+          path: build/Business-Empire-By-Adi.apk
+          if-no-files-found: error
+
+          unzip -Z1 "$APK" | grep -q '^assets/main.pck
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Business-Empire-Android-APK
+          path: build/Business-Empire-By-Adi.apk
+          if-no-files-found: error
+
           sha256sum "$APK"
 
       - name: Upload APK artifact
