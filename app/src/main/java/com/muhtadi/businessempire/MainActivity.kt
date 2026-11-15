@@ -28,6 +28,22 @@ private val Panel = Color(0xFF1B283B)
 private val Green = Color(0xFF31D69A)
 private val Muted = Color(0xFF9AA9BD)
 
+private data class CountryOption(
+    val name: String,
+    val currencyCode: String,
+    val localeTag: String,
+    val idrPerUnit: Double
+)
+
+private val countryOptions = listOf(
+    CountryOption("Indonesia", "IDR", "id-ID", 1.0),
+    CountryOption("United States", "USD", "en-US", 16_000.0),
+    CountryOption("United Kingdom", "GBP", "en-GB", 20_500.0),
+    CountryOption("Germany", "EUR", "de-DE", 17_500.0),
+    CountryOption("Japan", "JPY", "ja-JP", 105.0),
+    CountryOption("Singapore", "SGD", "en-SG", 12_000.0)
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +61,17 @@ fun BusinessEmpireApp() {
     var day by remember { mutableIntStateOf(prefs.getInt("day", 1)) }
     var speed by remember { mutableIntStateOf(prefs.getInt("speed", 1)) }
     var paused by remember { mutableStateOf(prefs.getBoolean("paused", false)) }
+    var selectedCountryName by remember { mutableStateOf(prefs.getString("country", "Indonesia") ?: "Indonesia") }
+    var countryMenuExpanded by remember { mutableStateOf(false) }
+    val selectedCountry = countryOptions.firstOrNull { it.name == selectedCountryName } ?: countryOptions.first()
+    val currency = remember(selectedCountry) {
+        NumberFormat.getCurrencyInstance(Locale.forLanguageTag(selectedCountry.localeTag)).apply {
+            currency = java.util.Currency.getInstance(selectedCountry.currencyCode)
+            maximumFractionDigits = if (selectedCountry.currencyCode == "JPY") 0 else 2
+        }
+    }
+    fun money(amountInIdr: Long): String =
+        currency.format(amountInIdr.toDouble() / selectedCountry.idrPerUnit)
     var log by remember {
         mutableStateOf(
             prefs.getString("log", null)
@@ -63,11 +90,10 @@ fun BusinessEmpireApp() {
             .putInt("day", day)
             .putInt("speed", speed)
             .putBoolean("paused", paused)
+            .putString("country", selectedCountryName)
             .putString("log", log.take(30).joinToString("\\n"))
             .apply()
     }
-    val currency = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
-
     MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Navy, surface = Panel, onSurface = Color.White)) {
         Scaffold(containerColor = Navy) { padding ->
             LazyColumn(
@@ -79,12 +105,30 @@ fun BusinessEmpireApp() {
                     Text("BUSINESS EMPIRE", color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     Text("Dashboard CEO", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Text("Hari $day • ${if (paused) "Dijeda" else "Berjalan ${speed}x"}", color = Muted)
+                    Spacer(Modifier.height(8.dp))
+                    Box {
+                        OutlinedButton(onClick = { countryMenuExpanded = true }) {
+                            Text("🌐 ${selectedCountry.name} • ${selectedCountry.currencyCode}")
+                        }
+                        DropdownMenu(expanded = countryMenuExpanded, onDismissRequest = { countryMenuExpanded = false }) {
+                            countryOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text("${option.name} (${option.currencyCode})") },
+                                    onClick = {
+                                        selectedCountryName = option.name
+                                        countryMenuExpanded = false
+                                        log = listOf("Basis negara diubah ke ${option.name}.") + log
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
                 item {
                     Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
                         Column(Modifier.padding(20.dp)) {
                             Text("KAS PERUSAHAAN", color = Muted, fontSize = 12.sp)
-                            Text(currency.format(cash), color = Green, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                            Text(money(cash), color = Green, fontSize = 27.sp, fontWeight = FontWeight.Bold)
                             Text("Muhtadi Group", color = Color.White, fontSize = 15.sp)
                         }
                     }
@@ -112,7 +156,7 @@ fun BusinessEmpireApp() {
                             val cost = trucks * 450_000L * speed
                             cash += income - cost
                             deliveries += trucks * speed
-                            log = listOf("Hari $day: ${trucks * speed} pengiriman. Laba ${currency.format(income - cost)}.") + log
+                            log = listOf("Hari $day: ${trucks * speed} pengiriman. Laba ${money(income - cost)}.") + log
                         }
                     }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Navy)) {
                         Text("Jalankan simulasi", fontWeight = FontWeight.Bold)
@@ -127,7 +171,7 @@ fun BusinessEmpireApp() {
                                 Spacer(Modifier.width(8.dp))
                                 Text("Beli truk baru", color = Color.White, fontWeight = FontWeight.SemiBold)
                             }
-                            Text("Harga unit: ${currency.format(75_000_000L)}", color = Muted)
+                            Text("Harga unit: ${money(75_000_000L)}", color = Muted)
                             Button(onClick = {
                                 if (cash >= 75_000_000L) {
                                     cash -= 75_000_000L
@@ -146,7 +190,7 @@ fun BusinessEmpireApp() {
                         }
                     }
                 }
-                item { Text("BUSINESS EMPIRE • Prototype 0.1.0", color = Muted, fontSize = 11.sp) }
+                item { Text("BUSINESS EMPIRE • Prototype 0.2.0", color = Muted, fontSize = 11.sp) }
             }
         }
     }
