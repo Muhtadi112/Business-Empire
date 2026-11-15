@@ -113,7 +113,7 @@ jobs:
           echo "APK size: $(stat -c%s "$APK") bytes"
           file "$APK"
           unzip -tq "$APK"
-          apksigner verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
           sha256sum "$APK"
 
       - name: Upload APK artifact
