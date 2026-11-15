@@ -14,6 +14,7 @@ var throttle := 0.0
 var steering := 0.0
 var truck: CharacterBody3D
 var camera: Camera3D
+var camera_first_person := false
 var cash_label: Label
 var status_label: Label
 var speed_label: Label
@@ -48,9 +49,14 @@ func _physics_process(delta: float) -> void:
 	truck.velocity.y = -9.8
 	truck.move_and_slide()
 	if camera:
-		var camera_target := truck.global_position + truck.global_basis * Vector3(0, 5.2, 10.5)
-		camera.global_position = camera.global_position.lerp(camera_target, min(1.0, delta * 4.0))
-		camera.look_at(truck.global_position + Vector3(0, 1.5, 0), Vector3.UP)
+		if camera_first_person:
+			var cab_position := truck.global_position + truck.global_basis * Vector3(0, 2.15, -0.65)
+			camera.global_position = camera.global_position.lerp(cab_position, min(1.0, delta * 7.0))
+			camera.look_at(cab_position + (-truck.global_basis.z * 30.0) + Vector3(0, -0.15, 0), Vector3.UP)
+		else:
+			var camera_target := truck.global_position + truck.global_basis * Vector3(0, 5.2, 10.5)
+			camera.global_position = camera.global_position.lerp(camera_target, min(1.0, delta * 4.0))
+			camera.look_at(truck.global_position + Vector3(0, 1.5, 0), Vector3.UP)
 	if contract_active and truck.global_position.distance_to(target_position) < 13.0:
 		_complete_contract()
 	_update_speed_label()
@@ -204,6 +210,14 @@ func _build_hud() -> void:
 	contract_button.pressed.connect(_on_contract_pressed)
 	root.add_child(contract_button)
 
+	var camera_button := Button.new()
+	camera_button.text = "KAMERA: ORANG KETIGA"
+	camera_button.position = Vector2(18, 118)
+	camera_button.size = Vector2(260, 48)
+	camera_button.add_theme_font_size_override("font_size", 15)
+	camera_button.pressed.connect(_toggle_camera)
+	root.add_child(camera_button)
+
 	_make_control_button("◀", Vector2(35, 570), Vector2(90, 90), func(): steering = -1.0, func(): steering = 0.0, root)
 	_make_control_button("▶", Vector2(235, 570), Vector2(90, 90), func(): steering = 1.0, func(): steering = 0.0, root)
 	_make_control_button("▲ GAS", Vector2(1080, 565), Vector2(150, 100), func(): throttle = 1.0, func(): throttle = 0.0, root)
@@ -229,6 +243,13 @@ func _make_control_button(caption: String, pos: Vector2, button_size: Vector2, o
 	button.button_down.connect(on_down)
 	button.button_up.connect(on_up)
 	parent.add_child(button)
+
+func _toggle_camera() -> void:
+	camera_first_person = not camera_first_person
+	var camera_button := get_tree().current_scene.find_child("*", true, false)
+	# Camera mode is also reflected in the HUD status for clear feedback.
+	if status_label:
+		status_label.text = "KAMERA KABIN • PANDANGAN PENGEMUDI" if camera_first_person else "KAMERA EKSTERNAL • ORANG KETIGA"
 
 func _on_contract_pressed() -> void:
 	if contract_done:
