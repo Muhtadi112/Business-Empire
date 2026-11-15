@@ -93,6 +93,19 @@ jobs:
           test -s godot/assets/kenney_runtime/industrial/building-a.glb
           test -s godot/assets/kenney_runtime/commercial/building-a.glb
 
+      - name: Prepare branding and convert user's loading video
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          mkdir -p godot/assets/branding
+          test -s logo.jpg
+          test -s loading_screen.mp4
+          cp logo.jpg godot/assets/branding/logo.jpg
+          ffmpeg -y -i loading_screen.mp4 -an -c:v libtheora -q:v 7 godot/assets/branding/loading_screen.ogv
+          test -s godot/assets/branding/logo.jpg
+          test -s godot/assets/branding/loading_screen.ogv
+
       - name: Validate project
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
 
