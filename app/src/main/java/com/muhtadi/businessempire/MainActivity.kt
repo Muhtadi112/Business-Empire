@@ -64,14 +64,14 @@ fun BusinessEmpireApp() {
     var selectedCountryName by remember { mutableStateOf(prefs.getString("country", "Indonesia") ?: "Indonesia") }
     var countryMenuExpanded by remember { mutableStateOf(false) }
     val selectedCountry = countryOptions.firstOrNull { it.name == selectedCountryName } ?: countryOptions.first()
-    val currency = remember(selectedCountry) {
+    val formatter = remember(selectedCountry) {
         NumberFormat.getCurrencyInstance(Locale.forLanguageTag(selectedCountry.localeTag)).apply {
-            currency = java.util.Currency.getInstance(selectedCountry.currencyCode)
+            this.currency = java.util.Currency.getInstance(selectedCountry.currencyCode)
             maximumFractionDigits = if (selectedCountry.currencyCode == "JPY") 0 else 2
         }
     }
     fun money(amountInIdr: Long): String =
-        currency.format(amountInIdr.toDouble() / selectedCountry.idrPerUnit)
+        formatter.format(amountInIdr.toDouble() / selectedCountry.idrPerUnit)
     var log by remember {
         mutableStateOf(
             prefs.getString("log", null)
@@ -82,7 +82,7 @@ fun BusinessEmpireApp() {
     }
 
     // Simpan otomatis setiap data permainan berubah.
-    LaunchedEffect(cash, trucks, deliveries, day, speed, paused, log) {
+    LaunchedEffect(cash, trucks, deliveries, day, speed, paused, selectedCountryName, log) {
         prefs.edit()
             .putLong("cash", cash)
             .putInt("trucks", trucks)
