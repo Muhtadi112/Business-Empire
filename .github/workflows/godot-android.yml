@@ -67,11 +67,22 @@ jobs:
           adb start-server
           adb version
 
+      - name: Create Android debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
+          test -s "$HOME/.android/debug.keystore"
+
       - name: Validate project
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path godot --quit
 
       - name: Export debug APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.temp }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          cp "$HOME/.android/debug.keystore" "$RUNNER_TEMP/debug.keystore"
           mkdir -p build
           ./Godot_v4.4.1-stable_linux.x86_64 --headless --verbose --path godot --export-debug "Android" build/Business-Empire-By-Adi.apk
           test -s build/Business-Empire-By-Adi.apk
