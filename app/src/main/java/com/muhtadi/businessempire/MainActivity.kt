@@ -385,7 +385,7 @@ private fun SplashScreen() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             androidx.compose.foundation.Image(
-                painter = painterResource(id = R.drawable.ic_business_empire),
+                painter = painterResource(id = R.drawable.business_empire_logo),
                 contentDescription = "Business Empire logo",
                 modifier = Modifier.size(132.dp)
             )
